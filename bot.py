@@ -1,14 +1,13 @@
 import os
+import json
+import base64
 from flask import Flask, render_template_string, request, jsonify
 import requests
-import random
 
 app = Flask(__name__)
 
-# TMDB API Key
+# TMDB API Key & Ad Links
 TMDB_API_KEY = "7dc544d9253bccc3cfecc1c677f69819"
-
-# Your Ad Direct Links
 AD_LINKS = [
     "https://www.effectivecpmnetwork.com/xqmb731x1?key=0267816362fc4320de630e064b317db1",
     "https://www.effectivecpmnetwork.com/qw8kn1x7h?key=5fdb7c5ecd8aff08f9ffb43334a9d3e6",
@@ -24,120 +23,125 @@ UI_HTML = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultimate Movie Post Generator</title>
+    <title>Ultimate Blogger Generator PRO</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background: #0a0a0a; color: #e5e7eb; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .card { background: #111; border: 1px solid #333; border-radius: 15px; margin-top: 20px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        .form-control, .form-select { background: #1a1a1a; border: 1px solid #444; color: #fff; border-radius: 8px; padding: 10px; }
-        .form-control:focus { background: #222; border-color: #3b82f6; color: #fff; box-shadow: none; }
-        .search-item { cursor: pointer; transition: 0.3s; margin-bottom: 20px; position: relative; }
-        .search-item:hover { transform: translateY(-5px); border: 1px solid #3b82f6; border-radius: 10px; }
-        .section-title { background: linear-gradient(90deg, #3b82f6, transparent); padding: 10px 20px; border-radius: 8px; margin: 30px 0 15px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        :root { --accent: #38bdf8; --bg: #0b0f1a; --card: #161e2e; }
+        body { background: var(--bg); color: #e2e8f0; font-family: 'Inter', sans-serif; }
+        .editor-card { background: var(--card); border: 1px solid #1e293b; border-radius: 15px; margin-top: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .form-control, .form-select { background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 8px; }
+        .form-control:focus { background: #0f172a; border-color: var(--accent); color: #fff; box-shadow: none; }
+        .section-title { border-left: 4px solid var(--accent); padding-left: 15px; margin: 30px 0 15px; font-weight: bold; text-transform: uppercase; color: var(--accent); }
         
-        .quality-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
-        .quality-grid div { text-align: center; font-size: 11px; color: #999; }
+        /* Grid Layouts */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .quality-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 5px; }
+        .quality-grid input { font-size: 11px; padding: 5px; }
         
-        .season-box { background: #181818; padding: 20px; border-radius: 15px; margin-bottom: 25px; border: 1px solid #222; position: relative; }
-        .episode-box { background: #222; padding: 15px; border-radius: 10px; margin-top: 15px; border-left: 5px solid #3b82f6; }
+        .cast-box, .screenshot-box { background: #0f172a; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #1e293b; }
+        .season-item { background: #1e293b; border-radius: 12px; padding: 15px; margin-bottom: 20px; border: 1px solid #334155; }
+        .episode-item { background: #0f172a; border-radius: 10px; padding: 12px; margin-top: 10px; border-left: 3px solid var(--accent); }
         
-        .btn-premium { background: linear-gradient(135deg, #3b82f6, #1d4ed8); border: none; font-weight: bold; padding: 12px; border-radius: 10px; transition: 0.3s; }
-        .btn-premium:hover { background: #2563eb; transform: scale(1.02); }
-        .code-output { background: #000; color: #22c55e; padding: 20px; border-radius: 12px; font-family: 'Courier New', monospace; white-space: pre-wrap; display: none; margin-top: 30px; }
+        .btn-sky { background: var(--accent); color: #000; font-weight: bold; border: none; }
+        .btn-sky:hover { background: #0ea5e9; }
+        .code-box { background: #000; color: #10b981; padding: 15px; border-radius: 10px; font-family: monospace; white-space: pre-wrap; display: none; }
     </style>
 </head>
 <body>
 <div class="container my-5">
-    <div class="card p-4">
-        <h2 class="text-center text-primary fw-bold mb-4">🎥 BLOGGER POST CREATOR (PRO)</h2>
+    <div class="editor-card p-4">
+        <h2 class="text-center fw-bold mb-4">🚀 ULTIMATE BLOGGER POST GENERATOR</h2>
         
-        <!-- Search Section -->
+        <!-- Import Tool -->
+        <div class="mb-4 p-3 border border-dashed rounded border-info">
+            <label class="text-info fw-bold">RE-EDIT OLD POST?</label>
+            <textarea id="import_html" class="form-control mb-2" placeholder="Paste your old Blogger HTML code here to edit..."></textarea>
+            <button class="btn btn-info btn-sm w-100 fw-bold" onclick="importOldCode()">IMPORT & EDIT</button>
+        </div>
+
         <div class="row g-2 mb-4">
-            <div class="col-md-7"><input type="text" id="query" class="form-control" placeholder="Movie or TV Series Name..."></div>
+            <div class="col-md-7"><input type="text" id="query" class="form-control" placeholder="Search Movie/Series Name..."></div>
             <div class="col-md-3">
                 <select id="type" class="form-select">
-                    <option value="movie">Movie</option>
-                    <option value="tv">Web Series</option>
+                    <option value="movie">Movie</option><option value="tv">Web Series</option>
                 </select>
             </div>
-            <div class="col-md-2"><button class="btn btn-primary w-100 fw-bold" onclick="search()">SEARCH</button></div>
+            <div class="col-md-2"><button class="btn btn-sky w-100" onclick="searchTMDB()">SEARCH</button></div>
         </div>
 
         <div id="results" class="row"></div>
 
-        <!-- Detail Editor Area -->
-        <div id="editor" style="display:none;">
-            <div class="section-title">1. Post Basic Info & Visuals</div>
+        <!-- Editor Area -->
+        <div id="editor_area" style="display:none;">
+            <div class="section-title">1. Edit Details (Auto-Filled)</div>
             <div class="row g-3">
-                <div class="col-md-8"><label>Title</label><input type="text" id="title" class="form-control"></div>
-                <div class="col-md-4"><label>Backdrop Thumbnail URL</label><input type="text" id="backdrop" class="form-control"></div>
-                <div class="col-md-4"><label>Language</label><input type="text" id="lang" class="form-control" placeholder="Hindi-English"></div>
-                <div class="col-md-4"><label>Release Date</label><input type="text" id="release" class="form-control"></div>
-                <div class="col-md-4"><label>Trailer ID (YouTube)</label><input type="text" id="trailer" class="form-control"></div>
-                <div class="col-md-12"><label>Storyline</label><textarea id="story" class="form-control" rows="3"></textarea></div>
-                <div class="col-md-12"><label>Director Name</label><input type="text" id="director" class="form-control"></div>
+                <div class="col-md-6"><label>Main Title</label><input type="text" id="m_title" class="form-control"></div>
+                <div class="col-md-6"><label>Backdrop Image (Landscape)</label><input type="text" id="m_backdrop" class="form-control"></div>
+                <div class="col-md-4"><label>Language</label><input type="text" id="m_lang" class="form-control"></div>
+                <div class="col-md-4"><label>Release Date</label><input type="text" id="m_date" class="form-control"></div>
+                <div class="col-md-4"><label>YouTube Trailer ID</label><input type="text" id="m_trailer" class="form-control"></div>
+                <div class="col-md-12"><label>Storyline</label><textarea id="m_story" class="form-control" rows="3"></textarea></div>
+                <div class="col-md-6"><label>Director Name</label><input type="text" id="m_dir_name" class="form-control"></div>
+                <div class="col-md-6"><label>Director Photo URL</label><input type="text" id="m_dir_img" class="form-control"></div>
             </div>
 
-            <div class="section-title">2. Ad Settings</div>
-            <div class="row align-items-center">
-                <div class="col-md-4">
-                    <label>Ads Per Click (1 - 10)</label>
-                    <select id="ad_count" class="form-select">
-                        <option value="1">1 Ad</option><option value="2">2 Ads</option>
-                        <option value="3">3 Ads</option><option value="4">4 Ads</option>
-                        <option value="5" selected>5 Ads</option><option value="6">6 Ads</option>
-                        <option value="7">7 Ads</option><option value="8">8 Ads</option>
-                        <option value="9">9 Ads</option><option value="10">10 Ads</option>
-                    </select>
-                </div>
-                <div class="col-md-8 text-muted small mt-2">Selected number of ads will open as pop-ups when a user clicks any download link.</div>
+            <div class="section-title">2. Cast & Gallery (Edit if needed)</div>
+            <div id="cast_list" class="row"></div>
+            <div id="gallery_list" class="row mt-3"></div>
+
+            <div class="section-title">3. Ad Control</div>
+            <div class="col-md-4">
+                <label>Pop-up Ads per Click (1-10)</label>
+                <select id="m_ad_count" class="form-select">
+                    <script>for(let i=1;i<=10;i++) document.write(`<option value="${i}">${i} Ads</option>`)</script>
+                </select>
             </div>
 
-            <!-- Download Sections -->
-            <div id="movie-links-section" style="display:none;">
-                <div class="section-title">3. Movie Download Links (8K to 140p)</div>
-                <div class="quality-grid" id="m-q-grid">
-                    <div>8K<input type="text" data-q="8K" class="form-control mq" placeholder="Link"></div>
-                    <div>4K<input type="text" data-q="4K" class="form-control mq" placeholder="Link"></div>
-                    <div>2K<input type="text" data-q="2K" class="form-control mq" placeholder="Link"></div>
-                    <div>1080p<input type="text" data-q="1080p" class="form-control mq" placeholder="Link"></div>
-                    <div>720p<input type="text" data-q="720p" class="form-control mq" placeholder="Link"></div>
-                    <div>480p<input type="text" data-q="480p" class="form-control mq" placeholder="Link"></div>
-                    <div>360p<input type="text" data-q="360p" class="form-control mq" placeholder="Link"></div>
-                    <div>140p<input type="text" data-q="140p" class="form-control mq" placeholder="Link"></div>
+            <!-- Movie Links Grid (2 per line) -->
+            <div id="movie_links_ui" style="display:none;">
+                <div class="section-title">4. Movie Download Links (8K to 140p)</div>
+                <div class="quality-grid" id="movie_q_boxes">
+                    <div>8K<input type="text" data-q="8K" class="form-control mq"></div>
+                    <div>4K<input type="text" data-q="4K" class="form-control mq"></div>
+                    <div>2K<input type="text" data-q="2K" class="form-control mq"></div>
+                    <div>1080p<input type="text" data-q="1080p" class="form-control mq"></div>
+                    <div>720p<input type="text" data-q="720p" class="form-control mq"></div>
+                    <div>480p<input type="text" data-q="480p" class="form-control mq"></div>
+                    <div>360p<input type="text" data-q="360p" class="form-control mq"></div>
+                    <div>140p<input type="text" data-q="140p" class="form-control mq"></div>
                 </div>
             </div>
 
-            <div id="series-links-section" style="display:none;">
-                <div class="section-title">3. Seasons & Episodes Management</div>
-                <div id="seasons-container"></div>
-                <button class="btn btn-outline-primary w-100 fw-bold mt-2" onclick="addSeason()">+ ADD NEW SEASON</button>
+            <!-- Series Links UI -->
+            <div id="series_links_ui" style="display:none;">
+                <div class="section-title">4. Seasons & Episodes</div>
+                <div id="season_container"></div>
+                <button class="btn btn-outline-info w-100 fw-bold mt-3" onclick="addSeason()">+ ADD SEASON</button>
             </div>
 
-            <button class="btn btn-premium w-100 mt-5 text-white" onclick="generateHTML()">GENERATE BLOGGER HTML</button>
-            
-            <div id="output" class="code-output"></div>
-            <button id="copy-btn" class="btn btn-success w-100 mt-2 fw-bold" style="display:none;" onclick="copyCode()">COPY HTML CODE</button>
+            <button class="btn btn-sky btn-lg w-100 mt-5 py-3" onclick="generateHTML()">🚀 GENERATE FINAL BLOGGER HTML</button>
+            <div id="output" class="code-box mt-3"></div>
+            <button id="copyBtn" class="btn btn-success w-100 mt-2 fw-bold" style="display:none;" onclick="copyCode()">COPY CODE</button>
         </div>
     </div>
 </div>
 
 <script>
-let selectedItem = null;
-let seasonCounter = 0;
+let seasonCount = 0;
+let tmdbData = null;
 
-async function search() {
+async function searchTMDB() {
     const q = document.getElementById('query').value;
     const t = document.getElementById('type').value;
     const res = await fetch(`/api/search?q=${q}&type=${t}`);
     const data = await res.json();
     let html = '';
     data.results.forEach(item => {
-        const title = item.title || item.name;
-        const img = item.backdrop_path ? `https://image.tmdb.org/t/p/w500${item.backdrop_path}` : 'https://via.placeholder.com/500x280?text=No+Thumb';
-        html += `<div class="col-md-4 search-item text-center" onclick="selectItem('${item.id}', '${t}')">
-            <img src="${img}" class="img-fluid rounded">
-            <p class="mt-2 fw-bold">${title}</p>
+        html += `<div class="col-md-4 mb-3" onclick="selectItem('${item.id}', '${t}')" style="cursor:pointer">
+            <div class="card bg-dark border-secondary p-1">
+                <img src="https://image.tmdb.org/t/p/w500${item.backdrop_path}" class="img-fluid rounded">
+                <p class="text-center small mt-1 mb-0">${item.title || item.name}</p>
+            </div>
         </div>`;
     });
     document.getElementById('results').innerHTML = html;
@@ -145,117 +149,184 @@ async function search() {
 
 async function selectItem(id, type) {
     const res = await fetch(`/api/details?id=${id}&type=${type}`);
-    selectedItem = await res.json();
-    
-    document.getElementById('title').value = selectedItem.title || selectedItem.name;
-    document.getElementById('backdrop').value = `https://image.tmdb.org/t/p/original${selectedItem.backdrop_path}`;
-    document.getElementById('release').value = selectedItem.release_date || selectedItem.first_air_date;
-    document.getElementById('story').value = selectedItem.overview;
-    
-    // Director Info
-    const director = selectedItem.credits.crew.find(c => c.job === 'Director');
-    document.getElementById('director').value = director ? director.name : 'Unknown';
-
-    // Trailer
-    const trailer = selectedItem.videos.results.find(v => v.type === 'Trailer');
-    document.getElementById('trailer').value = trailer ? trailer.key : '';
-
-    document.getElementById('editor').style.display = 'block';
+    tmdbData = await res.json();
     document.getElementById('results').innerHTML = '';
+    document.getElementById('editor_area').style.display = 'block';
+    
+    // Auto-fill inputs
+    document.getElementById('m_title').value = tmdbData.title || tmdbData.name;
+    document.getElementById('m_backdrop').value = `https://image.tmdb.org/t/p/original${tmdbData.backdrop_path}`;
+    document.getElementById('m_date').value = tmdbData.release_date || tmdbData.first_air_date;
+    document.getElementById('m_story').value = tmdbData.overview;
+    
+    const dir = tmdbData.credits.crew.find(c => c.job === 'Director');
+    document.getElementById('m_dir_name').value = dir ? dir.name : '';
+    document.getElementById('m_dir_img').value = dir ? `https://image.tmdb.org/t/p/w185${dir.profile_path}` : '';
+    
+    const trailer = tmdbData.videos.results.find(v => v.type === 'Trailer');
+    document.getElementById('m_trailer').value = trailer ? trailer.key : '';
+
+    // Cast & Gallery list
+    let c_html = '';
+    tmdbData.credits.cast.slice(0, 6).forEach((c, i) => {
+        c_html += `<div class="col-md-4 cast-box">
+            <input type="text" class="form-control form-control-sm mb-1 cast-n" value="${c.name}">
+            <input type="text" class="form-control form-control-sm cast-i" value="https://image.tmdb.org/t/p/w185${c.profile_path}">
+        </div>`;
+    });
+    document.getElementById('cast_list').innerHTML = c_html;
+
+    let g_html = '';
+    tmdbData.images.backdrops.slice(0, 4).forEach((img, i) => {
+        g_html += `<div class="col-md-6 screenshot-box">
+            <input type="text" class="form-control form-control-sm g-img" value="https://image.tmdb.org/t/p/w500${img.file_path}">
+        </div>`;
+    });
+    document.getElementById('gallery_list').innerHTML = g_html;
+
     if(type === 'movie') {
-        document.getElementById('movie-links-section').style.display = 'block';
-        document.getElementById('series-links-section').style.display = 'none';
+        document.getElementById('movie_links_ui').style.display = 'block';
+        document.getElementById('series_links_ui').style.display = 'none';
     } else {
-        document.getElementById('movie-links-section').style.display = 'none';
-        document.getElementById('series-links-section').style.display = 'block';
+        document.getElementById('movie_links_ui').style.display = 'none';
+        document.getElementById('series_links_ui').style.display = 'block';
     }
 }
 
-function addSeason() {
-    seasonCounter++;
-    const sName = `S${String(seasonCounter).padStart(2, '0')}`;
-    const sId = `season_${seasonCounter}`;
-    const sDiv = document.createElement('div');
-    sDiv.className = 'season-box';
-    sDiv.id = sId;
-    sDiv.innerHTML = `
-        <div class="d-flex justify-content-between align-items-center">
-            <input type="text" class="form-control s-title-input w-50 fw-bold text-primary" value="${sName}">
+function addSeason(name = "") {
+    seasonCount++;
+    const sId = `season_${seasonCount}`;
+    const sNum = String(seasonCount).padStart(2, '0');
+    const sName = name || `Season ${sNum}`;
+    
+    const div = document.createElement('div');
+    div.className = 'season-item';
+    div.id = sId;
+    div.innerHTML = `
+        <div class="d-flex justify-content-between mb-2">
+            <input type="text" class="form-control w-50 fw-bold s-title" value="${sName}">
             <button class="btn btn-sm btn-info fw-bold" onclick="addEpisode('${sId}')">+ ADD EPISODE</button>
         </div>
-        <div class="ep-container" data-epcount="0"></div>
+        <div class="ep-container" data-count="0"></div>
     `;
-    document.getElementById('seasons-container').appendChild(sDiv);
+    document.getElementById('season_container').appendChild(div);
 }
 
-function addEpisode(sId) {
-    const epContainer = document.querySelector(`#${sId} .ep-container`);
-    let epCount = parseInt(epContainer.dataset.epcount) + 1;
-    epContainer.dataset.epcount = epCount;
-    const epName = `E${String(epCount).padStart(2, '0')}`;
+function addEpisode(sId, name = "", links = {}) {
+    const epCont = document.querySelector(`#${sId} .ep-container`);
+    let count = parseInt(epCont.dataset.count) + 1;
+    epCont.dataset.count = count;
+    const eNum = String(count).padStart(2, '0');
+    const epName = name || `Episode ${eNum}`;
     
-    const epDiv = document.createElement('div');
-    epDiv.className = 'episode-box';
-    epDiv.innerHTML = `
-        <input type="text" class="form-control ep-title-input mb-3 fw-bold" value="${epName}">
+    const div = document.createElement('div');
+    div.className = 'episode-item';
+    div.innerHTML = `
+        <input type="text" class="form-control form-control-sm mb-2 fw-bold e-title" value="${epName}">
         <div class="quality-grid">
-            <div>8K<input type="text" data-q="8K" class="form-control eq" placeholder="Link"></div>
-            <div>4K<input type="text" data-q="4K" class="form-control eq" placeholder="Link"></div>
-            <div>2K<input type="text" data-q="2K" class="form-control eq" placeholder="Link"></div>
-            <div>1080p<input type="text" data-q="1080p" class="form-control eq" placeholder="Link"></div>
-            <div>720p<input type="text" data-q="720p" class="form-control eq" placeholder="Link"></div>
-            <div>480p<input type="text" data-q="480p" class="form-control eq" placeholder="Link"></div>
-            <div>360p<input type="text" data-q="360p" class="form-control eq" placeholder="Link"></div>
-            <div>140p<input type="text" data-q="140p" class="form-control eq" placeholder="Link"></div>
+            ${['8K','4K','2K','1080p','720p','480p','360p','140p'].map(q => 
+                `<div>${q}<input type="text" data-q="${q}" class="form-control eq" value="${links[q] || ''}"></div>`
+            ).join('')}
         </div>
     `;
-    epContainer.appendChild(epDiv);
+    epCont.appendChild(div);
+}
+
+// IMPORT FEATURE (Re-editing)
+function importOldCode() {
+    try {
+        const html = document.getElementById('import_html').value;
+        const b64 = html.match(/<!--DATA:(.*)-->/)[1];
+        const data = JSON.parse(atob(b64));
+        
+        document.getElementById('editor_area').style.display = 'block';
+        document.getElementById('m_title').value = data.title;
+        document.getElementById('m_backdrop').value = data.backdrop;
+        document.getElementById('m_lang').value = data.lang;
+        document.getElementById('m_date').value = data.date;
+        document.getElementById('m_story').value = data.story;
+        document.getElementById('m_dir_name').value = data.dir_name;
+        document.getElementById('m_dir_img').value = data.dir_img;
+        document.getElementById('m_ad_count').value = data.ad_count;
+        document.getElementById('m_trailer').value = data.trailer;
+
+        if(data.type === 'movie') {
+            document.getElementById('movie_links_ui').style.display = 'block';
+            data.movieLinks.forEach(l => {
+                const inp = document.querySelector(`.mq[data-q="${l.q}"]`);
+                if(inp) inp.value = l.url;
+            });
+        } else {
+            document.getElementById('series_links_ui').style.display = 'block';
+            document.getElementById('season_container').innerHTML = '';
+            seasonCount = 0;
+            data.seasons.forEach(s => {
+                addSeason(s.name);
+                const sId = `season_${seasonCount}`;
+                s.episodes.forEach(e => {
+                    const lObj = {};
+                    e.links.forEach(ln => lObj[ln.q] = ln.url);
+                    addEpisode(sId, e.name, lObj);
+                });
+            });
+        }
+        alert("Import Successful! Now you can edit and re-generate.");
+    } catch(e) {
+        alert("Invalid HTML! Make sure this post was generated by this tool.");
+    }
 }
 
 async function generateHTML() {
-    const ad_count = document.getElementById('ad_count').value;
-    const basic = {
-        title: document.getElementById('title').value,
-        backdrop: document.getElementById('backdrop').value,
-        lang: document.getElementById('lang').value,
-        release: document.getElementById('release').value,
-        trailer: document.getElementById('trailer').value,
-        story: document.getElementById('story').value,
-        director: document.getElementById('director').value,
-        type: document.getElementById('type').value,
-        ad_count: ad_count
-    };
+    const cast = [];
+    document.querySelectorAll('.cast-box').forEach(b => {
+        cast.push({ name: b.querySelector('.cast-n').value, img: b.querySelector('.cast-i').value });
+    });
+
+    const gallery = [];
+    document.querySelectorAll('.g-img').forEach(i => gallery.push(i.value));
 
     const movieLinks = [];
-    document.querySelectorAll('.mq').forEach(i => { if(i.value) movieLinks.push({ q: i.dataset.q, url: i.value }); });
+    document.querySelectorAll('.mq').forEach(i => { if(i.value) movieLinks.push({q: i.dataset.q, url: i.value}); });
 
     const seasons = [];
-    document.querySelectorAll('.season-box').forEach(sBox => {
-        const sTitle = sBox.querySelector('.s-title-input').value;
+    document.querySelectorAll('.season-item').forEach(sBox => {
         const eps = [];
-        sBox.querySelectorAll('.episode-box').forEach(eBox => {
-            const eTitle = eBox.querySelector('.ep-title-input').value;
+        sBox.querySelectorAll('.episode-item').forEach(eBox => {
             const eLinks = [];
-            eBox.querySelectorAll('.eq').forEach(ei => { if(ei.value) eLinks.push({ q: ei.dataset.q, url: ei.value }); });
-            eps.push({ title: eTitle, links: eLinks });
+            eBox.querySelectorAll('.eq').forEach(ei => { if(ei.value) eLinks.push({q: ei.dataset.q, url: ei.value}); });
+            eps.push({ name: eBox.querySelector('.e-title').value, links: eLinks });
         });
-        seasons.push({ title: sTitle, episodes: eps });
+        seasons.push({ name: sBox.querySelector('.s-title').value, episodes: eps });
     });
+
+    const fullData = {
+        title: document.getElementById('m_title').value,
+        backdrop: document.getElementById('m_backdrop').value,
+        lang: document.getElementById('m_lang').value,
+        date: document.getElementById('m_date').value,
+        story: document.getElementById('m_story').value,
+        dir_name: document.getElementById('m_dir_name').value,
+        dir_img: document.getElementById('m_dir_img').value,
+        trailer: document.getElementById('m_trailer').value,
+        ad_count: document.getElementById('m_ad_count').value,
+        cast, gallery, movieLinks, seasons,
+        type: document.getElementById('type').value
+    };
 
     const res = await fetch('/api/generate', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ item: selectedItem, basic, movieLinks, seasons })
+        body: JSON.stringify(fullData)
     });
     const result = await res.json();
     document.getElementById('output').innerText = result.html;
     document.getElementById('output').style.display = 'block';
-    document.getElementById('copy-btn').style.display = 'block';
+    document.getElementById('copyBtn').style.display = 'block';
 }
 
 function copyCode() {
     navigator.clipboard.writeText(document.getElementById('output').innerText);
-    alert("Blogger HTML Copied!");
+    alert("Copied!");
 }
 </script>
 </body>
@@ -283,112 +354,99 @@ def details_api():
 @app.route('/api/generate', methods=['POST'])
 def generate_api():
     data = request.json
-    item = data['item']
-    b = data['basic']
-    mLinks = data['movieLinks']
-    seasons = data['seasons']
     
-    # Cast Slider
-    cast_html = ""
-    for c in item.get('credits', {}).get('cast', [])[:12]:
-        c_img = f"https://image.tmdb.org/t/p/w185{c['profile_path']}" if c['profile_path'] else "https://via.placeholder.com/100"
-        cast_html += f'<div class="cast-card"><img src="{c_img}"><p>{c["name"]}</p></div>'
-
-    # ScreenShots
-    ss_html = ""
-    for img in item.get('images', {}).get('backdrops', [])[:6]:
-        ss_html += f'<img src="https://image.tmdb.org/t/p/w500{img["file_path"]}">'
-
-    # Ads Script Generation
-    ads_js = f"const ads = {AD_LINKS}; const adCount = {b['ad_count']};"
+    # Meta data for re-editing
+    json_meta = base64.b64encode(json.dumps(data).encode()).decode()
     
-    # Movie Links Logic (2 in a row)
+    cast_html = "".join([f'<div class="cast-c"><img src="{c["img"]}"><p>{c["name"]}</p></div>' for c in data['cast']])
+    gallery_html = "".join([f'<img src="{img}">' for img in data['gallery']])
+    
+    # MOVIE BUTTONS (2 PER ROW)
     movie_btn_html = ""
-    if b['type'] == 'movie':
-        movie_btn_html = '<div class="m-dl-grid">'
-        for l in mLinks:
-            movie_btn_html += f'<a href="javascript:void(0)" onclick="openLink(\'{l["url"]}\')" class="p-btn">{l["q"]} Download</a>'
+    if data['type'] == 'movie':
+        movie_btn_html = '<div class="btn-grid-2">'
+        for l in data['movieLinks']:
+            movie_btn_html += f'<a href="javascript:void(0)" onclick="openLink(\'{l["url"]}\')" class="btn-main">{l["q"]} Download</a>'
         movie_btn_html += '</div>'
 
-    # Series Logic (Accordion + Grid)
-    series_btn_html = ""
-    for i, s in enumerate(seasons):
-        series_btn_html += f'<button class="s-btn" onclick="toggleS(\'s{i}\')">📂 {s["title"]} (Show Episodes)</button>'
-        series_btn_html += f'<div id="s{i}" class="ep-grid" style="display:none;">'
+    # SERIES SYSTEM (2 PER ROW SEASONS & EPISODES)
+    series_btn_html = '<div class="btn-grid-2">'
+    for i, s in enumerate(data['seasons']):
+        series_btn_html += f'<button class="btn-s" onclick="toggleS(\'s{i}\')">📂 {s["name"]}</button>'
+    series_btn_html += '</div>'
+    
+    for i, s in enumerate(data['seasons']):
+        series_btn_html += f'<div id="s{i}" class="ep-area" style="display:none;"><div class="btn-grid-2">'
         for ep in s['episodes']:
-            # For episodes, we just create one button that contains all quality links in a simple way or a primary link
-            # According to your request: S01 E01 Link (3 in a row)
-            # We'll use the first available quality as the primary link
+            # Quality logic for episodes
             main_url = ep['links'][0]['url'] if ep['links'] else "#"
-            series_btn_html += f'<a href="javascript:void(0)" onclick="openLink(\'{main_url}\')" class="e-btn">{s["title"]} {ep["title"]} Link</a>'
-        series_btn_html += '</div>'
+            series_btn_html += f'<a href="javascript:void(0)" onclick="openLink(\'{main_url}\')" class="btn-e">{ep["name"]} Link</a>'
+        series_btn_html += '</div></div>'
 
-    final_html = f"""
-<!-- Premium Blogger Post -->
+    # AD JS
+    ad_script = f"const ads={AD_LINKS}; const adCount={data['ad_count']};"
+
+    blogger_html = f"""
+<!--BLOGGER POST START-->
 <style>
-    .p-wrapper {{ background: #0f172a; color: #f8fafc; padding: 25px; border-radius: 20px; font-family: 'Inter', sans-serif; }}
-    .p-thumb {{ width: 100%; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }}
-    .p-title {{ color: #38bdf8; font-size: 35px; font-weight: 900; text-align: center; margin-top: 20px; }}
-    .h-head {{ border-left: 5px solid #38bdf8; padding-left: 15px; margin: 35px 0 15px; font-weight: bold; font-size: 20px; color: #fff; text-transform: uppercase; }}
-    
-    .c-slider {{ display: flex; overflow-x: auto; gap: 15px; padding-bottom: 10px; scrollbar-width: none; }}
-    .cast-card {{ min-width: 90px; text-align: center; }}
-    .cast-card img {{ width: 75px; height: 75px; border-radius: 50%; border: 3px solid #38bdf8; object-fit: cover; }}
-    
-    .ss-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }}
-    .ss-grid img {{ width: 100%; border-radius: 10px; }}
-    
-    .m-dl-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }}
-    .p-btn {{ background: linear-gradient(90deg, #38bdf8, #2563eb); color: #fff !important; text-align: center; padding: 15px; border-radius: 12px; font-weight: bold; text-decoration: none !important; }}
-    
-    .s-btn {{ width: 100%; background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 15px; border-radius: 10px; font-weight: bold; margin-bottom: 10px; text-align: left; cursor: pointer; }}
-    .ep-grid {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }}
-    .e-btn {{ background: #38bdf8; color: #000 !important; font-size: 11px; font-weight: 800; padding: 10px 5px; border-radius: 6px; text-align: center; text-decoration: none !important; }}
-    
-    .unlock-btn {{ display: block; background: #f59e0b; color: #000 !important; text-align: center; padding: 20px; border-radius: 15px; font-size: 22px; font-weight: 900; cursor: pointer; margin: 30px 0; }}
+    .p-body {{ background: #0f172a; color: #f1f5f9; padding: 20px; border-radius: 15px; font-family: sans-serif; }}
+    .p-main-img {{ width: 100%; border-radius: 10px; box-shadow: 0 5px 25px rgba(0,0,0,0.5); }}
+    .p-title {{ color: #38bdf8; text-align: center; font-size: 30px; font-weight: bold; margin: 15px 0; }}
+    .h-title {{ border-left: 4px solid #38bdf8; padding-left: 12px; margin: 25px 0 15px; font-weight: bold; font-size: 18px; }}
+    .cast-slider {{ display: flex; overflow-x: auto; gap: 12px; padding-bottom: 10px; }}
+    .cast-c {{ min-width: 85px; text-align: center; }}
+    .cast-c img {{ width: 70px; height: 70px; border-radius: 50%; border: 2px solid #38bdf8; object-fit: cover; }}
+    .gal-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }}
+    .gal-grid img {{ width: 100%; border-radius: 8px; }}
+    .btn-grid-2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 15px; }}
+    .btn-main, .btn-s, .btn-e {{ display: block; background: linear-gradient(90deg, #38bdf8, #2563eb); color: #fff !important; text-align: center; padding: 12px; border-radius: 8px; text-decoration: none !important; font-weight: bold; border: none; width: 100%; cursor: pointer; }}
+    .btn-s {{ background: #1e293b; border: 1px solid #38bdf8; }}
+    .btn-e {{ background: #38bdf8; color: #000 !important; font-size: 12px; }}
+    .ep-area {{ background: #1e293b; padding: 10px; border-radius: 10px; margin-top: 5px; }}
+    .unlock-btn {{ display: block; background: #fbbf24; color: #000 !important; text-align: center; padding: 18px; border-radius: 12px; font-weight: 800; font-size: 20px; cursor: pointer; margin: 25px 0; }}
 </style>
 
-<div class="p-wrapper">
-    <img src="{b['backdrop']}" class="p-thumb">
-    <h1 class="p-title">{b['title']}</h1>
-    <p style="text-align:center; opacity:0.7;">📅 {b['release']} | 🌐 {b['lang']} | 🎬 {b['director']}</p>
+<div class="p-body">
+    <img src="{data['backdrop']}" class="p-main-img">
+    <h1 class="p-title">{data['title']}</h1>
+    <p style="text-align:center;opacity:0.8;">📅 {data['date']} | 🌐 {data['lang']} | 👤 {data['dir_name']}</p>
 
-    <div class="h-head">STORYLINE</div>
-    <p style="line-height:1.7; color: #cbd5e1;">{b['story']}</p>
+    <div class="h-title">STORYLINE</div>
+    <p style="line-height:1.6;color:#94a3b8;">{data['story']}</p>
 
-    <div class="h-head">CAST</div>
-    <div class="c-slider">{cast_html}</div>
+    <div class="h-title">STAR CAST</div>
+    <div class="cast-slider">{cast_html}</div>
 
-    <div class="h-head">SCREENSHOTS</div>
-    <div class="ss-grid">{ss_html}</div>
+    <div class="h-title">SCREENSHOTS</div>
+    <div class="gal-grid">{gallery_html}</div>
 
-    <div class="h-head">TRAILER</div>
-    <iframe width="100%" height="350" src="https://www.youtube.com/embed/{b['trailer']}" frameborder="0" allowfullscreen style="border-radius:15px;"></iframe>
+    <div class="h-title">OFFICIAL TRAILER</div>
+    <iframe width="100%" height="315" src="https://www.youtube.com/embed/{data['trailer']}" frameborder="0" allowfullscreen style="border-radius:10px;"></iframe>
 
-    <div class="unlock-btn" onclick="document.getElementById('dl-area').style.display='block';this.style.display='none'">🔓 UNLOCK DOWNLOAD LINKS</div>
+    <div class="unlock-btn" onclick="document.getElementById('dl-box').style.display='block';this.style.display='none'">🔓 UNLOCK DOWNLOAD LINKS</div>
 
-    <div id="dl-area" style="display:none;">
-        <div class="h-head">DOWNLOAD LINKS</div>
-        {movie_btn_html}
-        {series_btn_html}
+    <div id="dl-box" style="display:none;">
+        <div class="h-title">DOWNLOAD OPTIONS</div>
+        {movie_btn_html if data['type']=='movie' else series_btn_html}
     </div>
 </div>
 
 <script>
-    {ads_js}
+    {ad_script}
     function toggleS(id) {{
+        document.querySelectorAll('.ep-area').forEach(a => {{ if(a.id !== id) a.style.display = 'none'; }});
         var x = document.getElementById(id);
-        x.style.display = (x.style.display === "none") ? "grid" : "none";
+        x.style.display = (x.style.display === "none") ? "block" : "none";
     }}
     function openLink(url) {{
-        for(let i=0; i<adCount; i++) {{
-            window.open(ads[Math.floor(Math.random() * ads.length)], '_blank');
-        }}
+        for(let i=0; i<adCount; i++) {{ window.open(ads[Math.floor(Math.random()*ads.length)], '_blank'); }}
         window.location.href = url;
     }}
 </script>
+<!--DATA:{json_meta}-->
+<!--BLOGGER POST END-->
 """
-    return jsonify({"html": final_html})
+    return jsonify({"html": blogger_html})
 
 if __name__ == '__main__':
     app.run(debug=True)
