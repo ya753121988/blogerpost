@@ -36,7 +36,6 @@ UI_HTML = """
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         
-        /* Mobile Responsive for Grid 4 */
         @media (max-width: 768px) {
             .grid-4 { grid-template-columns: 1fr 1fr; }
         }
@@ -44,8 +43,9 @@ UI_HTML = """
         .season-item { background: #1e293b; border: 2px solid #334155; padding: 25px; border-radius: 20px; margin-bottom: 25px; position: relative; }
         .episode-item { background: #0f172a; padding: 20px; border-radius: 15px; margin-top: 15px; border-left: 5px solid var(--accent); position: relative; }
         
-        .del-btn { position: absolute; right: 10px; top: 10px; background: #ff4444; color: white; border: none; border-radius: 5px; padding: 2px 10px; font-size: 12px; cursor: pointer; }
-        .del-btn:hover { background: #cc0000; }
+        /* Remove Button Style */
+        .btn-remove { position: absolute; top: 10px; right: 10px; background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 11px; font-weight: bold; cursor: pointer; }
+        .btn-remove:hover { background: #b91c1c; }
 
         .btn-prem { background: var(--accent); color: #000; font-weight: 900; border: none; padding: 18px; border-radius: 12px; transition: 0.3s; }
         .btn-prem:hover { background: #0ea5e9; transform: translateY(-3px); }
@@ -58,7 +58,6 @@ UI_HTML = """
     <div class="editor-card">
         <h2 class="text-center fw-bold mb-4 text-info">🚀 ULTIMATE BLOGGER POST ENGINE</h2>
         
-        <!-- Re-Edit Section -->
         <div class="mb-5 p-4 border border-info border-dashed rounded text-center">
             <h5 class="text-info">IMPORT & RE-EDIT POST</h5>
             <textarea id="import_data" class="form-control" rows="2" placeholder="Paste your generated code here to edit..."></textarea>
@@ -77,7 +76,6 @@ UI_HTML = """
 
         <div id="results" class="row"></div>
 
-        <!-- Detail Form -->
         <div id="editor_form" style="display:none;">
             <div class="section-header">1. BASIC DETAILS & MAIN THUMBNAIL</div>
             <div class="row g-3">
@@ -105,7 +103,6 @@ UI_HTML = """
                 </select>
             </div>
 
-            <!-- Movie UI -->
             <div id="movie_ui" style="display:none;">
                 <div class="section-header">5. MOVIE DOWNLOAD LINKS (8K to 140p)</div>
                 <div class="grid-4">
@@ -120,7 +117,6 @@ UI_HTML = """
                 </div>
             </div>
 
-            <!-- Series UI -->
             <div id="series_ui" style="display:none;">
                 <div class="section-header">5. SEASONS & EPISODES</div>
                 <div id="season_container"></div>
@@ -129,7 +125,6 @@ UI_HTML = """
 
             <button class="btn btn-prem w-100 btn-lg mt-5" onclick="generateFinalHTML()">🚀 GENERATE PREMIUM BLOGGER POST</button>
 
-            <!-- Result -->
             <div id="final_section" class="mt-5" style="display:none;">
                 <div class="d-flex gap-3 mb-3">
                     <button class="btn btn-success flex-grow-1 fw-bold py-3" onclick="copyHTML()">COPY HTML CODE</button>
@@ -178,7 +173,6 @@ async function selectItem(id, type) {
     const t = rawTMDB.videos.results.find(v => v.type === 'Trailer');
     document.getElementById('e_trailer').value = t ? t.key : '';
 
-    // Cast List
     let cH = '';
     rawTMDB.credits.cast.slice(0, 6).forEach(c => {
         cH += `<div class="col-md-4 mb-2 p-2 border border-secondary rounded">
@@ -189,7 +183,6 @@ async function selectItem(id, type) {
     });
     document.getElementById('e_cast_list').innerHTML = cH;
 
-    // Gallery List
     let gH = '';
     rawTMDB.images.backdrops.slice(0, 8).forEach(img => {
         gH += `<div class="col-md-6"><input type="text" class="form-control form-control-sm gi" value="https://image.tmdb.org/t/p/original${img.file_path}"></div>`;
@@ -212,7 +205,7 @@ function addSeason(name = "") {
     const div = document.createElement('div');
     div.className = 'season-item';
     div.id = sId;
-    div.innerHTML = `<button class="del-btn" onclick="document.getElementById('${sId}').remove()">X</button>
+    div.innerHTML = `<button class="btn-remove" onclick="this.parentElement.remove()">REMOVE</button>
         <div class="d-flex gap-3 mb-3"><input type="text" class="form-control fw-bold st" value="${sName}">
         <button class="btn btn-info fw-bold" onclick="addEpisode('${sId}')">+ ADD EPISODE</button></div><div class="ep-wrap" data-count="0"></div>`;
     document.getElementById('season_container').appendChild(div);
@@ -224,10 +217,8 @@ function addEpisode(sId, name = "", links = {}) {
     wrap.dataset.count = count;
     const eName = name || `Episode ${String(count).padStart(2, '0')}`;
     const div = document.createElement('div');
-    const eId = 'ep_' + Math.random().toString(36).substr(2, 9);
-    div.id = eId;
     div.className = 'episode-item';
-    div.innerHTML = `<button class="del-btn" onclick="document.getElementById('${eId}').remove()">X</button>
+    div.innerHTML = `<button class="btn-remove" onclick="this.parentElement.remove()">REMOVE</button>
         <input type="text" class="form-control fw-bold et mb-2" value="${eName}">
         <div class="grid-4">
             <div>8K<input type="text" data-q="8K" class="form-control eq" value="${links['8K'] || ''}"></div>
@@ -385,46 +376,56 @@ def generate_api():
                 s_btns += '</div></div>'
             s_btns += '</div>'
 
+        # Telegram Box HTML
+        tg_box_html = """
+        <div class="tg-main-box">
+            <h4>🚀 JOIN OUR TELEGRAM CHANNELS</h4>
+            <div class="tg-btn-grid">
+                <a href="https://t.me/FlixBoxsOfficial" target="_blank">Official Channel</a>
+                <a href="http://t.me/FlixBoxs" target="_blank">Backup Channel</a>
+                <a href="https://t.me/FlixBoxsNew" target="_blank">Movie Channel</a>
+                <a href="https://t.me/+bYeiFHL2OgM3NWZl" target="_blank">Chat Group</a>
+            </div>
+        </div>
+        """
+
         blogger_html = f"""
 <!--BLOGGER POST START-->
 <style>
-    .p-box {{ background: #0b0f1a; color: #f1f5f9; padding: 25px; border-radius: 20px; font-family: sans-serif; position: relative; animation: fadeIn 1s ease-in-out; }}
-    @keyframes fadeIn {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
+    .p-box {{ background: #0b0f1a; color: #f1f5f9; padding: 25px; border-radius: 20px; font-family: sans-serif; position: relative; animation: fadeIn 0.8s ease-in-out; }}
+    @keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
     .m-tm {{ width: 100%; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }}
     .m-tl {{ color: #38bdf8; font-size: 32px; font-weight: 900; text-align: center; margin: 25px 0; }}
     .h-ln {{ border-left: 5px solid #38bdf8; padding-left: 15px; margin: 30px 0 15px; font-weight: 800; font-size: 18px; color: #fff; }}
     .c-sl {{ display: flex; overflow-x: auto; gap: 15px; padding-bottom: 10px; scrollbar-width: none; }}
     .c-item {{ min-width: 90px; text-align: center; cursor: pointer; transition: 0.3s; }}
-    .c-item:hover {{ transform: scale(1.1); }}
     .c-item img {{ width: 75px; height: 75px; border-radius: 50%; border: 3px solid #38bdf8; object-fit: cover; }}
     .g-gr {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
-    .g-gr img {{ width: 100%; border-radius: 12px; transition: 0.3s; }}
-    .g-gr img:hover {{ transform: scale(1.02); }}
+    .g-gr img {{ width: 100%; border-radius: 12px; }}
     .btn-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }}
     .btn-pre {{ display: block; background: linear-gradient(135deg, #38bdf8, #2563eb); color: #fff !important; text-align: center; padding: 15px; border-radius: 12px; text-decoration: none !important; font-weight: 800; border: none; cursor: pointer; font-size: 14px; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); transition: 0.3s; }}
-    .btn-pre:hover {{ transform: translateY(-3px); box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6); }}
+    .btn-pre:hover {{ transform: scale(1.02); }}
     .s-btn {{ background: #1e293b; border: 1px solid #38bdf8; }}
     .ep-box, .q-box {{ background: #111827; padding: 15px; border-radius: 15px; border: 1px solid #1e293b; margin-top: 12px; }}
     .ep-btn {{ background: #334155; border: 1px solid #475569; }}
     .q-btn {{ background: #38bdf8; color: #000 !important; }}
-    .un-btn {{ display: block; background: #fbbf24; color: #000 !important; text-align: center; padding: 18px; border-radius: 15px; font-weight: 900; font-size: 20px; cursor: pointer; margin: 30px 0; border: none; width: 100%; animation: pulse 2s infinite; }}
-    @keyframes pulse {{ 0% {{ transform: scale(1); }} 50% {{ transform: scale(1.02); }} 100% {{ transform: scale(1); }} }}
+    .un-btn {{ display: block; background: #fbbf24; color: #000 !important; text-align: center; padding: 18px; border-radius: 15px; font-weight: 900; font-size: 20px; cursor: pointer; margin: 30px 0; border: none; width: 100%; transition: 0.3s; }}
+    .un-btn:hover {{ background: #f59e0b; }}
     .ac-m {{ position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #161e2e; border: 3px solid #38bdf8; width: 90%; max-width: 450px; padding: 25px; border-radius: 20px; z-index: 10000; display: none; color: #fff; box-shadow: 0 0 100px rgba(0,0,0,0.9); }}
     .ac-m img {{ width: 120px; height: 120px; border-radius: 50%; border: 4px solid #38bdf8; margin: 0 auto 20px; display: block; object-fit: cover; }}
     .ac-m h2 {{ text-align: center; color: #38bdf8; margin-bottom: 10px; font-weight: 900; }}
     .ac-m p {{ font-size: 14px; line-height: 1.6; text-align: justify; margin-bottom: 10px; color: #cbd5e1; max-height: 200px; overflow-y: auto; }}
 
-    /* Telegram Multi Box */
-    .tg-card {{ background: #161e2e; border: 2px solid #38bdf8; border-radius: 15px; padding: 20px; margin-top: 20px; text-align: center; }}
-    .tg-card h3 {{ color: #38bdf8; font-size: 18px; font-weight: 800; margin-bottom: 15px; }}
-    .tg-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }}
-    .tg-btn {{ background: #0088cc; color: white !important; padding: 10px; border-radius: 8px; text-decoration: none !important; font-weight: 700; font-size: 12px; transition: 0.3s; display: block; }}
-    .tg-btn:hover {{ background: #00aaff; transform: scale(1.05); }}
+    /* Telegram Box CSS */
+    .tg-main-box {{ background: #161e2e; border: 2px solid #38bdf8; padding: 15px; border-radius: 15px; margin-top: 15px; text-align: center; }}
+    .tg-main-box h4 {{ color: #38bdf8; font-size: 16px; font-weight: 900; margin-bottom: 12px; }}
+    .tg-btn-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }}
+    .tg-btn-grid a {{ background: #0088cc; color: #fff !important; text-decoration: none !important; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: bold; transition: 0.3s; }}
+    .tg-btn-grid a:hover {{ background: #00aaff; }}
 
     @media (max-width: 600px) {{
-        .btn-grid {{ grid-template-columns: 1fr 1fr; gap: 8px; }}
+        .btn-grid, .tg-btn-grid {{ grid-template-columns: 1fr 1fr; gap: 8px; }}
         .m-tl {{ font-size: 24px; }}
-        .tg-grid {{ grid-template-columns: 1fr 1fr; }}
     }}
 </style>
 
@@ -441,22 +442,16 @@ def generate_api():
     <div class="h-ln">OFFICIAL TRAILER</div>
     <iframe width="100%" height="350" src="https://www.youtube.com/embed/{data['trailer']}" frameborder="0" allowfullscreen style="border-radius:15px;"></iframe>
     
+    <!-- Telegram Box Before Unlock -->
     <button class="un-btn" onclick="document.getElementById('dl-zone').style.display='block';this.style.display='none'">🔓 UNLOCK DOWNLOAD LINKS</button>
-    
+    {tg_box_html}
+
     <div id="dl-zone" style="display:none;">
         <div class="h-ln">DOWNLOAD OPTIONS</div>
         {m_btns if data['type']=='movie' else s_btns}
-
-        <!-- Telegram Channels Box -->
-        <div class="tg-card">
-            <h3>🚀 JOIN OUR PREMIUM CHANNELS</h3>
-            <div class="tg-grid">
-                <a href="https://t.me/FlixBoxsOfficial" class="tg-btn" target="_blank">OFFICIAL CHANNEL</a>
-                <a href="http://t.me/FlixBoxs" class="tg-btn" target="_blank">BACKUP CHANNEL</a>
-                <a href="https://t.me/FlixBoxsNew" class="tg-btn" target="_blank">MOVIE CHANNEL</a>
-                <a href="https://t.me/+bYeiFHL2OgM3NWZl" class="tg-btn" target="_blank">CHAT GROUP</a>
-            </div>
-        </div>
+        
+        <!-- Telegram Box Inside Unlocked Area -->
+        {tg_box_html}
     </div>
 </div>
 
