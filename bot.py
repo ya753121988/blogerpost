@@ -5,7 +5,7 @@ import requests
 app = Flask(__name__)
 
 # TMDB API Key
-TMDB_API_KEY = "YOUR_TMDB_API_KEY"
+TMDB_API_KEY = "7dc544d9253bccc3cfecc1c677f69819"
 
 # --- Generator UI ---
 UI_HTML = """
