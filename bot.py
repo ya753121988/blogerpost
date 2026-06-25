@@ -33,16 +33,28 @@ UI_HTML = """
         .form-control:focus { background: #0f172a; color: #fff; border-color: var(--accent); box-shadow: none; }
         .section-header { border-left: 6px solid var(--accent); padding-left: 15px; margin: 35px 0 15px; font-weight: 900; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
         
+        /* Responsive Grid Fix */
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         
-        .season-item { background: #1e293b; border: 2px solid #334155; padding: 25px; border-radius: 20px; margin-bottom: 25px; }
-        .episode-item { background: #0f172a; padding: 20px; border-radius: 15px; margin-top: 15px; border-left: 5px solid var(--accent); }
+        @media (max-width: 768px) {
+            .grid-4 { grid-template-columns: repeat(2, 1fr); }
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+
+        .season-item { background: #1e293b; border: 2px solid #334155; padding: 25px; border-radius: 20px; margin-bottom: 25px; position: relative; animation: fadeIn 0.5s ease; }
+        .episode-item { background: #0f172a; padding: 20px; border-radius: 15px; margin-top: 15px; border-left: 5px solid var(--accent); position: relative; animation: slideIn 0.3s ease; }
         
         .btn-prem { background: var(--accent); color: #000; font-weight: 900; border: none; padding: 18px; border-radius: 12px; transition: 0.3s; }
         .btn-prem:hover { background: #0ea5e9; transform: translateY(-3px); }
+        .btn-del { background: #ef4444; color: #fff; border: none; border-radius: 8px; padding: 5px 12px; font-weight: bold; font-size: 12px; transition: 0.3s; }
+        .btn-del:hover { background: #b91c1c; }
+
         .code-box { background: #000; color: #10b981; padding: 20px; border-radius: 15px; font-family: monospace; white-space: pre-wrap; margin-top: 20px; border: 1px solid #334155; }
         .preview-box { background: #fff; color: #000; padding: 25px; border-radius: 15px; margin-top: 20px; display: none; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideIn { from { transform: translateX(-10px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     </style>
 </head>
 <body>
@@ -50,7 +62,6 @@ UI_HTML = """
     <div class="editor-card">
         <h2 class="text-center fw-bold mb-4 text-info">🚀 ULTIMATE BLOGGER POST ENGINE</h2>
         
-        <!-- Re-Edit Section -->
         <div class="mb-5 p-4 border border-info border-dashed rounded text-center">
             <h5 class="text-info">IMPORT & RE-EDIT POST</h5>
             <textarea id="import_data" class="form-control" rows="2" placeholder="Paste your generated code here to edit..."></textarea>
@@ -69,7 +80,6 @@ UI_HTML = """
 
         <div id="results" class="row"></div>
 
-        <!-- Detail Form -->
         <div id="editor_form" style="display:none;">
             <div class="section-header">1. BASIC DETAILS & MAIN THUMBNAIL</div>
             <div class="row g-3">
@@ -97,7 +107,6 @@ UI_HTML = """
                 </select>
             </div>
 
-            <!-- Movie UI FIXED -->
             <div id="movie_ui" style="display:none;">
                 <div class="section-header">5. MOVIE DOWNLOAD LINKS (8K to 140p)</div>
                 <div class="grid-4">
@@ -112,7 +121,6 @@ UI_HTML = """
                 </div>
             </div>
 
-            <!-- Series UI SAME AS YOU LIKED -->
             <div id="series_ui" style="display:none;">
                 <div class="section-header">5. SEASONS & EPISODES</div>
                 <div id="season_container"></div>
@@ -121,7 +129,6 @@ UI_HTML = """
 
             <button class="btn btn-prem w-100 btn-lg mt-5" onclick="generateFinalHTML()">🚀 GENERATE PREMIUM BLOGGER POST</button>
 
-            <!-- Result -->
             <div id="final_section" class="mt-5" style="display:none;">
                 <div class="d-flex gap-3 mb-3">
                     <button class="btn btn-success flex-grow-1 fw-bold py-3" onclick="copyHTML()">COPY HTML CODE</button>
@@ -145,7 +152,7 @@ async function searchTMDB() {
     const data = await res.json();
     let h = '';
     data.results.forEach(i => {
-        h += `<div class="col-md-4 mb-3" onclick="selectItem('${i.id}', '${t}')" style="cursor:pointer">
+        h += `<div class="col-md-4 col-6 mb-3" onclick="selectItem('${i.id}', '${t}')" style="cursor:pointer">
             <div class="card bg-dark border-secondary p-1"><img src="https://image.tmdb.org/t/p/w500${i.backdrop_path}" class="img-fluid rounded">
             <p class="text-center small mt-1 mb-0">${i.title || i.name}</p></div></div>`;
     });
@@ -170,10 +177,9 @@ async function selectItem(id, type) {
     const t = rawTMDB.videos.results.find(v => v.type === 'Trailer');
     document.getElementById('e_trailer').value = t ? t.key : '';
 
-    // Cast List
     let cH = '';
     rawTMDB.credits.cast.slice(0, 6).forEach(c => {
-        cH += `<div class="col-md-4 mb-2 p-2 border border-secondary rounded">
+        cH += `<div class="col-md-4 col-12 mb-2 p-2 border border-secondary rounded">
             <input type="text" class="form-control form-control-sm cn" value="${c.name}">
             <input type="text" class="form-control form-control-sm ci" value="https://image.tmdb.org/t/p/w185${c.profile_path}">
             <input type="hidden" class="cid" value="${c.id}">
@@ -181,10 +187,9 @@ async function selectItem(id, type) {
     });
     document.getElementById('e_cast_list').innerHTML = cH;
 
-    // Gallery List
     let gH = '';
     rawTMDB.images.backdrops.slice(0, 8).forEach(img => {
-        gH += `<div class="col-md-6"><input type="text" class="form-control form-control-sm gi" value="https://image.tmdb.org/t/p/original${img.file_path}"></div>`;
+        gH += `<div class="col-md-6 col-12"><input type="text" class="form-control form-control-sm gi" value="https://image.tmdb.org/t/p/original${img.file_path}"></div>`;
     });
     document.getElementById('e_gallery_list').innerHTML = gH;
 
@@ -204,8 +209,11 @@ function addSeason(name = "") {
     const div = document.createElement('div');
     div.className = 'season-item';
     div.id = sId;
-    div.innerHTML = `<div class="d-flex gap-3 mb-3"><input type="text" class="form-control fw-bold st" value="${sName}">
-        <button class="btn btn-info fw-bold" onclick="addEpisode('${sId}')">+ ADD EPISODE</button></div><div class="ep-wrap" data-count="0"></div>`;
+    div.innerHTML = `<div class="d-flex gap-2 mb-3 align-items-center">
+        <input type="text" class="form-control fw-bold st m-0" value="${sName}">
+        <button class="btn btn-info btn-sm fw-bold" onclick="addEpisode('${sId}')">+ EP</button>
+        <button class="btn-del" onclick="this.parentElement.parentElement.remove()">REMOVE</button>
+    </div><div class="ep-wrap" data-count="0"></div>`;
     document.getElementById('season_container').appendChild(div);
 }
 
@@ -216,7 +224,10 @@ function addEpisode(sId, name = "", links = {}) {
     const eName = name || `Episode ${String(count).padStart(2, '0')}`;
     const div = document.createElement('div');
     div.className = 'episode-item';
-    div.innerHTML = `<input type="text" class="form-control fw-bold et mb-2" value="${eName}">
+    div.innerHTML = `<div class="d-flex gap-2 mb-2">
+        <input type="text" class="form-control fw-bold et m-0" value="${eName}">
+        <button class="btn-del" onclick="this.parentElement.parentElement.remove()">REMOVE</button>
+    </div>
         <div class="grid-4">
             <div>8K<input type="text" data-q="8K" class="form-control eq" value="${links['8K'] || ''}"></div>
             <div>4K<input type="text" data-q="4K" class="form-control eq" value="${links['4K'] || ''}"></div>
@@ -343,41 +354,37 @@ def generate_api():
         data = request.json
         meta_b64 = base64.b64encode(json.dumps(data).encode()).decode()
         
-        # Cast
         cast_h = "".join([f'<div class="c-item" onclick="shAc(\'{c["name"]}\',\'{c["img"]}\',\'{c["born"]}\',\'{c["place"]}\',\'{c["count"]}\',\'{c["best"]}\',`{c["bio"]}`)"><img src="{c["img"]}"><p>{c["name"]}</p></div>' for c in data['cast']])
-        # Gallery
         gal_h = "".join([f'<img src="{i}">' for i in data['gallery']])
         
-        # MOVIE BUTTONS
         m_btns = '<div class="btn-grid">'
         if data['type'] == 'movie':
             for l in data['movieLinks']:
-                m_btns += f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre">{l["q"]} Premium Download</a>'
+                m_btns += f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre animation-btn">{l["q"]} Premium Download</a>'
         m_btns += '</div>'
 
-        # SERIES BUTTONS
         s_btns = '<div class="btn-grid">'
         for i, s in enumerate(data['seasons']):
-            s_btns += f'<button class="btn-pre s-btn" onclick="tgS(\'s{i}\')">📂 {s["name"]}</button>'
+            s_btns += f'<button class="btn-pre s-btn animation-btn" onclick="tgS(\'s{i}\')">📂 {s["name"]}</button>'
         s_btns += '</div>'
 
         for i, s in enumerate(data['seasons']):
             s_btns += f'<div id="s{i}" class="ep-box" style="display:none;"><div class="btn-grid">'
             for j, ep in enumerate(s['episodes']):
-                s_btns += f'<button class="btn-pre ep-btn" onclick="tgE(\'s{i}e{j}\')">🎬 {ep["name"]}</button>'
+                s_btns += f'<button class="btn-pre ep-btn animation-btn" onclick="tgE(\'s{i}e{j}\')">🎬 {ep["name"]}</button>'
             s_btns += '</div>'
             for j, ep in enumerate(s['episodes']):
                 s_btns += f'<div id="s{i}e{j}" class="q-box" style="display:none;"><div class="btn-grid">'
                 for l in ep['links']:
-                    s_btns += f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre q-btn">{l["q"]} Link</a>'
+                    s_btns += f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre q-btn animation-btn">{l["q"]} Link</a>'
                 s_btns += '</div></div>'
             s_btns += '</div>'
 
         blogger_html = f"""
 <!--BLOGGER POST START-->
 <style>
-    .p-box {{ background: #0b0f1a; color: #f1f5f9; padding: 25px; border-radius: 20px; font-family: sans-serif; position: relative; }}
-    .m-tm {{ width: 100%; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }}
+    .p-box {{ background: #0b0f1a; color: #f1f5f9; padding: 25px; border-radius: 20px; font-family: sans-serif; position: relative; overflow: hidden; }}
+    .m-tm {{ width: 100%; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: fadeIn 1s; }}
     .m-tl {{ color: #38bdf8; font-size: 32px; font-weight: 900; text-align: center; margin: 25px 0; }}
     .h-ln {{ border-left: 5px solid #38bdf8; padding-left: 15px; margin: 30px 0 15px; font-weight: 800; font-size: 18px; color: #fff; }}
     .c-sl {{ display: flex; overflow-x: auto; gap: 15px; padding-bottom: 10px; scrollbar-width: none; }}
@@ -388,14 +395,30 @@ def generate_api():
     .btn-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }}
     .btn-pre {{ display: block; background: linear-gradient(135deg, #38bdf8, #2563eb); color: #fff !important; text-align: center; padding: 15px; border-radius: 12px; text-decoration: none !important; font-weight: 800; border: none; cursor: pointer; font-size: 14px; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); }}
     .s-btn {{ background: #1e293b; border: 1px solid #38bdf8; }}
-    .ep-box, .q-box {{ background: #111827; padding: 15px; border-radius: 15px; border: 1px solid #1e293b; margin-top: 12px; }}
+    .ep-box, .q-box {{ background: #111827; padding: 15px; border-radius: 15px; border: 1px solid #1e293b; margin-top: 12px; animation: slideDown 0.3s ease; }}
     .ep-btn {{ background: #334155; border: 1px solid #475569; }}
     .q-btn {{ background: #38bdf8; color: #000 !important; }}
-    .un-btn {{ display: block; background: #fbbf24; color: #000 !important; text-align: center; padding: 18px; border-radius: 15px; font-weight: 900; font-size: 20px; cursor: pointer; margin: 30px 0; border: none; width: 100%; }}
+    .un-btn {{ display: block; background: #fbbf24; color: #000 !important; text-align: center; padding: 18px; border-radius: 15px; font-weight: 900; font-size: 20px; cursor: pointer; margin: 30px 0; border: none; width: 100%; animation: pulse 2s infinite; }}
     .ac-m {{ position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #161e2e; border: 3px solid #38bdf8; width: 90%; max-width: 450px; padding: 25px; border-radius: 20px; z-index: 10000; display: none; color: #fff; box-shadow: 0 0 100px rgba(0,0,0,0.9); }}
-    .ac-m img {{ width: 120px; height: 120px; border-radius: 50%; border: 4px solid #38bdf8; margin: 0 auto 20px; display: block; object-fit: cover; }}
-    .ac-m h2 {{ text-align: center; color: #38bdf8; margin-bottom: 10px; font-weight: 900; }}
-    .ac-m p {{ font-size: 14px; line-height: 1.6; text-align: justify; margin-bottom: 10px; color: #cbd5e1; max-height: 200px; overflow-y: auto; }}
+    
+    /* Telegram Box CSS */
+    .tg-box {{ background: #1e293b; border: 2px dashed #38bdf8; padding: 20px; border-radius: 20px; margin-top: 30px; text-align: center; }}
+    .tg-box h3 {{ color: #38bdf8; font-weight: 900; margin-bottom: 15px; }}
+    .tg-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }}
+    .tg-link {{ background: #0088cc; color: #fff !important; text-decoration: none; padding: 10px; border-radius: 10px; font-weight: bold; font-size: 13px; transition: 0.3s; }}
+    .tg-link:hover {{ transform: scale(1.05); background: #00aaff; }}
+
+    @keyframes fadeIn {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
+    @keyframes slideDown {{ from {{ opacity: 0; transform: translateY(-10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
+    @keyframes pulse {{ 0% {{ transform: scale(1); }} 50% {{ transform: scale(1.02); }} 100% {{ transform: scale(1); }} }}
+    .animation-btn {{ transition: 0.3s; }}
+    .animation-btn:hover {{ transform: scale(1.05); }}
+    
+    @media (max-width: 600px) {{
+        .btn-grid {{ grid-template-columns: 1fr; }}
+        .tg-grid {{ grid-template-columns: 1fr; }}
+        .m-tl {{ font-size: 24px; }}
+    }}
 </style>
 
 <div class="p-box">
@@ -411,9 +434,21 @@ def generate_api():
     <div class="h-ln">OFFICIAL TRAILER</div>
     <iframe width="100%" height="350" src="https://www.youtube.com/embed/{data['trailer']}" frameborder="0" allowfullscreen style="border-radius:15px;"></iframe>
     <button class="un-btn" onclick="document.getElementById('dl-zone').style.display='block';this.style.display='none'">🔓 UNLOCK DOWNLOAD LINKS</button>
+    
     <div id="dl-zone" style="display:none;">
         <div class="h-ln">DOWNLOAD OPTIONS</div>
         {m_btns if data['type']=='movie' else s_btns}
+        
+        <!-- Telegram Channels Box -->
+        <div class="tg-box">
+            <h3>📢 JOIN OUR CHANNELS</h3>
+            <div class="tg-grid">
+                <a href="https://t.me/FlixBoxsOfficial" class="tg-link" target="_blank">💎 Official Channel</a>
+                <a href="http://t.me/FlixBoxs" class="tg-link" target="_blank">🔄 Backup Channel</a>
+                <a href="https://t.me/FlixBoxsNew" class="tg-link" target="_blank">🎬 Movie Channel</a>
+                <a href="https://t.me/+bYeiFHL2OgM3NWZl" class="tg-link" target="_blank">💬 Chat Group</a>
+            </div>
+        </div>
     </div>
 </div>
 
