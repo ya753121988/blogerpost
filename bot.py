@@ -1,16 +1,25 @@
 import os
 import json
 import base64
-from flask import Flask, render_template_string, request, jsonify, url_for
+from flask import Flask, render_template_string, request, jsonify, url_for, send_from_directory
 import requests
 import re
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-# configuration
+# --- পার্সোনাল সার্ভার কনফিগারেশন ---
+# ইমেজগুলো 'uploads' ফোল্ডারে আজীবন জমা থাকবে
+UPLOAD_FOLDER = 'uploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# সর্বোচ্চ ১৬ মেগাবাইট পর্যন্ত ইমেজ আপলোড করা যাবে
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 
+
+# TMDB API Configuration
 TMDB_API_KEY = "7dc544d9253bccc3cfecc1c677f69819"
-# আপনি এখানে আপনার নিজের ImgBB API Key দিতে পারেন, নিচে একটি দেওয়া হলো
-IMGBB_API_KEY = "3a886f481c9a4497e88942b1095594b2"
 
 AD_LINKS = [
     "https://www.effectivecpmnetwork.com/xqmb731x1?key=0267816362fc4320de630e064b317db1",
@@ -50,11 +59,10 @@ UI_HTML = """
         .sys-btn.active { border-color: var(--accent); color: var(--accent); }
         .res-title { font-size: 14px; font-weight: bold; color: var(--accent); text-align: center; margin-top: 8px; }
         
-        /* Upload UI Style */
+        /* Personal Upload UI */
         .up-ui { display: flex; gap: 5px; align-items: center; margin-bottom: 12px; }
         .up-ui input { flex: 1; margin-bottom: 0 !important; }
-        .up-btn { background: #334155; color: #38bdf8; border: 1px solid #38bdf8; border-radius: 8px; padding: 0 15px; height: 50px; font-size: 12px; font-weight: bold; cursor: pointer; white-space: nowrap; transition: 0.3s; }
-        .up-btn:hover { background: #38bdf8; color: #000; }
+        .up-btn { background: #334155; color: #38bdf8; border: 1px solid #38bdf8; border-radius: 8px; padding: 0 15px; height: 50px; font-size: 12px; font-weight: bold; cursor: pointer; white-space: nowrap; }
     </style>
 </head>
 <body>
@@ -96,7 +104,7 @@ UI_HTML = """
                     <label>Main Backdrop (Landscape)</label>
                     <div class="up-ui">
                         <input type="text" id="e_backdrop" class="form-control">
-                        <button class="up-btn" onclick="triggerUp('main_f')">Upload</button>
+                        <button class="up-btn" onclick="triggerUp('main_f')">Upload My Server</button>
                         <input type="file" id="main_f" style="display:none" onchange="handleUp(this, 'e_backdrop')">
                     </div>
                 </div>
@@ -109,7 +117,7 @@ UI_HTML = """
                     <label>Director Profile Image</label>
                     <div class="up-ui">
                         <input type="text" id="e_dir_img" class="form-control">
-                        <button class="up-btn" onclick="triggerUp('dir_f')">Upload</button>
+                        <button class="up-btn" onclick="triggerUp('dir_f')">Upload My Server</button>
                         <input type="file" id="dir_f" style="display:none" onchange="handleUp(this, 'e_dir_img')">
                     </div>
                 </div>
@@ -181,12 +189,13 @@ async function handleUp(input, targetId) {
     formData.append('file', input.files[0]);
     const target = document.getElementById(targetId);
     const oldVal = target.value;
-    target.value = "Uploading...";
+    target.value = "Saving to Server...";
     try {
         const res = await fetch('/api/upload', { method:'POST', body:formData });
         const data = await res.json();
-        target.value = data.url || oldVal;
-    } catch(e) { target.value = oldVal; alert("Upload Failed!"); }
+        // আপনার নিজের সার্ভারের লিঙ্ক জেনারেট হবে
+        target.value = window.location.origin + data.url;
+    } catch(e) { target.value = oldVal; alert("Server Error or Storage Full!"); }
 }
 
 function switchSys(m) {
@@ -243,7 +252,7 @@ async function selectItem(id, type) {
             <input type="text" class="form-control form-control-sm cn" value="${c.name}">
             <div class="up-ui">
                 <input type="text" id="${iId}" class="form-control form-control-sm ci" value="https://image.tmdb.org/t/p/w185${c.profile_path}">
-                <button class="up-btn" style="height:31px; padding:0 5px;" onclick="triggerUp('${fId}')">Up</button>
+                <button class="up-btn" style="height:31px; font-size:10px" onclick="triggerUp('${fId}')">Up</button>
                 <input type="file" id="${fId}" style="display:none" onchange="handleUp(this, '${iId}')">
             </div>
             <input type="hidden" class="cid" value="${c.id}"></div>`;
@@ -256,7 +265,7 @@ async function selectItem(id, type) {
             <button class="btn-remove" onclick="this.parentElement.remove()">X</button>
             <div class="up-ui">
                 <input type="text" id="${iId}" class="form-control form-control-sm gi" value="https://image.tmdb.org/t/p/original${img.file_path}">
-                <button class="up-btn" style="height:31px; padding:0 5px;" onclick="triggerUp('${fId}')">Up</button>
+                <button class="up-btn" style="height:31px; font-size:10px" onclick="triggerUp('${fId}')">Up</button>
                 <input type="file" id="${fId}" style="display:none" onchange="handleUp(this, '${iId}')">
             </div></div>`;
     });
@@ -271,7 +280,7 @@ function addManCast() {
         <input type="text" class="form-control form-control-sm cn" placeholder="Name">
         <div class="up-ui">
             <input type="text" id="${iId}" class="form-control form-control-sm ci" placeholder="Img URL">
-            <button class="up-btn" style="height:31px; padding:0 5px;" onclick="triggerUp('${fId}')">Up</button>
+            <button class="up-btn" style="height:31px; font-size:10px" onclick="triggerUp('${fId}')">Up</button>
             <input type="file" id="${fId}" style="display:none" onchange="handleUp(this, '${iId}')">
         </div><input type="hidden" class="cid" value="0">`;
     document.getElementById('e_cast_list').appendChild(d);
@@ -283,7 +292,7 @@ function addManGal() {
     d.innerHTML=`<button class="btn-remove" onclick="this.parentElement.remove()">X</button>
         <div class="up-ui">
             <input type="text" id="${iId}" class="form-control form-control-sm gi" placeholder="Screenshot URL">
-            <button class="up-btn" style="height:31px; padding:0 5px;" onclick="triggerUp('${fId}')">Up</button>
+            <button class="up-btn" style="height:31px; font-size:10px" onclick="triggerUp('${fId}')">Up</button>
             <input type="file" id="${fId}" style="display:none" onchange="handleUp(this, '${iId}')">
         </div>`;
     document.getElementById('e_gallery_list').appendChild(d);
@@ -364,15 +373,29 @@ function previewToggle() { const p = document.getElementById('preview_area'); p.
 @app.route('/')
 def index(): return render_template_string(UI_HTML)
 
+# --- পার্সোনাল ইমেজ সার্ভার রুটস ---
+
+# ইমেজ আপলোড করার এন্ডপয়েন্ট
 @app.route('/api/upload', methods=['POST'])
-def upload_api():
-    try:
-        file = request.files['file']
-        img_data = base64.b64encode(file.read()).decode('utf-8')
-        # Uploading to ImgBB (Free)
-        res = requests.post("https://api.imgbb.com/1/upload", data={"key": IMGBB_API_KEY, "image": img_data})
-        return jsonify({"url": res.json()['data']['url']})
-    except: return jsonify({"url": ""}), 500
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file"}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No file name"}), 400
+    if file:
+        filename = secure_filename(file.filename)
+        # ফাইলের নামের সাথে ইউনিক আইডি যুক্ত করা হচ্ছে যেন ওভাররাইট না হয়
+        unique_name = f"{os.urandom(4).hex()}_{filename}"
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_name))
+        return jsonify({"url": f"/uploads/{unique_name}"})
+
+# আপলোড করা ইমেজ দেখানোর জন্য রুট (পার্সোনাল ইমেজ হোস্ট)
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+# --- TMDB API রুটস ---
 
 @app.route('/api/search')
 def search_api():
@@ -394,6 +417,8 @@ def details_api():
 def person_api():
     id = request.args.get('id')
     return jsonify(requests.get(f"https://api.themoviedb.org/3/person/{id}?api_key={TMDB_API_KEY}&append_to_response=combined_credits").json())
+
+# --- জেনারেটর কোড ---
 
 @app.route('/api/generate', methods=['POST'])
 def generate_api():
