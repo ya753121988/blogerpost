@@ -427,7 +427,7 @@ def generate_api():
         cast_h = "".join([f'<div class="c-item" onclick="shAc(\'{c["name"]}\',\'{c["img"]}\',\'{c["born"]}\',\'{c["place"]}\',\'{c["count"]}\',\'{c["best"]}\',`{c["bio"]}`, \'{data["title"]}\', \'{m_year}\')"><img src="{c["img"]}"><p>{c["name"]}</p></div>' for c in data['cast']])
         gal_h = "".join([f'<img src="{i}">' for i in data['gallery']])
         
-        m_btns = '<div class="premium-box"><h3 class="box-title">Quality List</h3><div class="btn-grid">' + "".join([f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre">Watch & Download {l["q"]}</a>' for l in data['movieLinks']]) + '</div></div>'
+        m_btns = '<div class="premium-box"><h3 class="box-title">Quality List</h3><div class="btn-grid">' + "".join([f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre m-btn">Watch & Download {l["q"]}</a>' for l in data['movieLinks']]) + '</div></div>'
         
         s_btns = '<div class="premium-box s-box"><h3 class="box-title">Season List</h3><div class="btn-grid">'
         for i, s in enumerate(data['seasons']):
@@ -470,12 +470,15 @@ def generate_api():
     .un-btn {{ display: block; background: #fbbf24; color: #000 !important; text-align: center; padding: 18px; border-radius: 15px; font-weight: 900; font-size: 20px; cursor: pointer; margin: 30px 0 40px 0; border: none; width: 100%; }}
     .premium-box {{ padding: 20px; border-radius: 18px; margin-top: 20px; background: #161e2e; }}
     .box-title {{ color: #fff; font-size: 18px; font-weight: 900; margin-bottom: 15px; text-align: center; text-transform: uppercase; }}
+    /* বাটনের কালার সেকশন */
+    .m-btn {{ background: linear-gradient(135deg, #6366f1, #a855f7); box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4); }}
     .s-box {{ border: 2px solid #38bdf8; }}
     .s-btn {{ background: linear-gradient(135deg, #38bdf8, #2563eb); box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); }}
     .ep-box {{ border: 2px solid #10b981; }}
     .ep-btn {{ background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); }}
     .q-box {{ border: 2px solid #f43f5e; }}
     .q-btn {{ background: linear-gradient(135deg, #f43f5e, #e11d48); box-shadow: 0 4px 15px rgba(244, 63, 94, 0.4); }}
+    /* মডাল এবং অন্যান্য */
     .ac-m {{ position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #161e2e; border: 3px solid #38bdf8; width: 90%; max-width: 450px; padding: 25px; border-radius: 20px; z-index: 10000; display: none; color: #fff; box-shadow: 0 0 100px rgba(0,0,0,0.9); }}
     .ac-m img {{ width: 100px; height: 100px; border-radius: 50%; border: 4px solid #38bdf8; margin: 0 auto 15px; display: block; object-fit: cover; }}
     .tg-main-box {{ background: #161e2e; border: 2px solid #38bdf8; padding: 15px; border-radius: 15px; margin-top: 15px; text-align: center; }}
