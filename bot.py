@@ -232,7 +232,7 @@ function addEpisode(sId, name="", links={}) {
     const w = document.querySelector(`#${sId} .ep-wrap`);
     let c = parseInt(w.dataset.count)+1; w.dataset.count=c;
     const sFormat = document.querySelector(`#${sId} .st`).dataset.sformat;
-    const eFormat = sFormat + " E" + String(c).padStart(2, '0');
+    const eFormat = sFormat + " EP" + String(c).padStart(2, '0');
     
     const d = document.createElement('div'); d.className='episode-item';
     d.innerHTML = `<button class="btn-remove" onclick="this.parentElement.remove()">REMOVE</button>
@@ -324,8 +324,8 @@ def generate_api():
         cast_h = "".join([f'<div class="c-item" onclick="shAc(\'{c["name"]}\',\'{c["img"]}\',\'{c["born"]}\',\'{c["place"]}\',\'{c["count"]}\',\'{c["best"]}\',`{c["bio"]}`, \'{data["title"]}\', \'{m_year}\')"><img src="{c["img"]}"><p>{c["name"]}</p></div>' for c in data['cast']])
         gal_h = "".join([f'<img src="{i}">' for i in data['gallery']])
         
-        # Premium Download Box Styling
-        m_btns = '<div class="premium-box"><div class="btn-grid">' + "".join([f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre">{l["q"]} Premium Download</a>' for l in data['movieLinks']]) + '</div></div>'
+        # Premium Download Box Styling - Updated Movie & Episode labels
+        m_btns = '<div class="premium-box"><div class="btn-grid">' + "".join([f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre">Watch & Download {l["q"]}</a>' for l in data['movieLinks']]) + '</div></div>'
         
         s_btns = '<div class="premium-box"><div class="btn-grid">' + "".join([f'<button class="btn-pre s-btn" onclick="tgS(\'s{i}\')">📂 {s["name"]}</button>' for i, s in enumerate(data['seasons'])]) + '</div>'
         for i, s in enumerate(data['seasons']):
@@ -334,7 +334,7 @@ def generate_api():
             s_btns += '</div>'
             for j, ep in enumerate(s['episodes']):
                 s_btns += f'<div id="s{i}e{j}" class="q-box" style="display:none;"><div class="btn-grid">'
-                for l in ep['links']: s_btns += f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre q-btn">{l["q"]} Link</a>'
+                for l in ep['links']: s_btns += f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre q-btn">{ep["name"]} {l["q"]}</a>'
                 s_btns += '</div></div>'
             s_btns += '</div>'
         s_btns += '</div>'
