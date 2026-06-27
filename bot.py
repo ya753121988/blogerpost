@@ -51,6 +51,11 @@ UI_HTML = """
         .btn-prem:hover { background: #0ea5e9; transform: translateY(-3px); }
         .code-box { background: #000; color: #10b981; padding: 20px; border-radius: 15px; font-family: monospace; white-space: pre-wrap; margin-top: 20px; border: 1px solid #334155; }
         .preview-box { background: #fff; color: #000; padding: 25px; border-radius: 15px; margin-top: 20px; display: none; }
+        
+        /* New Style for System Toggle */
+        .system-toggle { display: flex; gap: 10px; margin-bottom: 20px; }
+        .system-btn { flex: 1; padding: 15px; border-radius: 10px; border: 2px solid #334155; background: #1e293b; color: white; font-weight: bold; cursor: pointer; }
+        .system-btn.active { border-color: var(--accent); background: #0f172a; color: var(--accent); }
     </style>
 </head>
 <body>
@@ -64,14 +69,24 @@ UI_HTML = """
             <button class="btn btn-info btn-sm w-100 fw-bold" onclick="importCode()">IMPORT OLD POST</button>
         </div>
 
-        <div class="row g-2 mb-4">
-            <div class="col-md-7"><input type="text" id="query" class="form-control" placeholder="Search Movie or TV Series..."></div>
-            <div class="col-md-3">
-                <select id="type" class="form-select bg-dark text-white border-secondary">
-                    <option value="movie">Movie</option><option value="tv">Web Series</option>
-                </select>
+        <!-- System Selection -->
+        <div class="system-toggle">
+            <button id="btn_auto" class="system-btn active" onclick="switchSystem('auto')">SYSTEM 1: AUTO (TMDB/IMDB)</button>
+            <button id="btn_manual" class="system-btn" onclick="switchSystem('manual')">SYSTEM 2: MANUAL ENTRY</button>
+        </div>
+
+        <!-- Auto Search System -->
+        <div id="auto_search_area">
+            <div class="row g-2 mb-4">
+                <div class="col-md-5"><input type="text" id="query" class="form-control" placeholder="Search Movie or TV Series..."></div>
+                <div class="col-md-3"><input type="text" id="imdb_id" class="form-control" placeholder="IMDB Link/ID (Optional)"></div>
+                <div class="col-md-2">
+                    <select id="type" class="form-select bg-dark text-white border-secondary" style="height: 50px;">
+                        <option value="movie">Movie</option><option value="tv">Web Series</option>
+                    </select>
+                </div>
+                <div class="col-md-2"><button class="btn btn-prem w-100" onclick="searchTMDB()">SEARCH</button></div>
             </div>
-            <div class="col-md-2"><button class="btn btn-prem w-100" onclick="searchTMDB()">SEARCH</button></div>
         </div>
 
         <div id="results" class="row"></div>
@@ -83,16 +98,16 @@ UI_HTML = """
                 <div class="col-md-6"><label>Main Backdrop (Landscape)</label><input type="text" id="e_backdrop" class="form-control"></div>
                 <div class="col-md-4"><label>Language</label><input type="text" id="e_lang" class="form-control"></div>
                 <div class="col-md-4"><label>Release Date</label><input type="text" id="e_date" class="form-control"></div>
-                <div class="col-md-4"><label>Trailer ID</label><input type="text" id="e_trailer" class="form-control"></div>
+                <div class="col-md-4"><label>Trailer ID (Youtube)</label><input type="text" id="e_trailer" class="form-control"></div>
                 <div class="col-md-12"><label>Storyline</label><textarea id="e_story" class="form-control" rows="4"></textarea></div>
                 <div class="col-md-6"><label>Director Name</label><input type="text" id="e_dir_name" class="form-control"></div>
                 <div class="col-md-6"><label>Director Profile Image</label><input type="text" id="e_dir_img" class="form-control"></div>
             </div>
 
-            <div class="section-header">2. CAST (NAYOK/NAYIKA) - ALL DETAILS</div>
+            <div class="section-header">2. CAST (NAYOK/NAYIKA) - <button class="btn btn-sm btn-outline-info" onclick="addManualCast()">+ Add Manual Cast</button></div>
             <div id="e_cast_list" class="row g-3"></div>
 
-            <div class="section-header">3. ALL LANDSCAPE GALLERY IMAGES</div>
+            <div class="section-header">3. ALL LANDSCAPE GALLERY IMAGES - <button class="btn btn-sm btn-outline-info" onclick="addManualGallery()">+ Add Manual Image</button></div>
             <div id="e_gallery_list" class="row g-2"></div>
 
             <div class="section-header">4. ADVERTISEMENT SETTINGS</div>
@@ -100,6 +115,15 @@ UI_HTML = """
                 <label>Ads Per Click (1-10)</label>
                 <select id="e_ad_count" class="form-select bg-dark text-white border-secondary">
                     <script>for(let i=1;i<=10;i++) document.write(`<option value="${i}">${i} Ads per Click</option>`)</script>
+                </select>
+            </div>
+
+            <!-- Manual Selection for Movie/Series Link UI -->
+            <div class="mt-4 p-3 border border-secondary rounded">
+                <label class="fw-bold text-info">Select Content Type for Links:</label>
+                <select id="manual_type_select" class="form-select bg-dark text-white" onchange="toggleLinkUI(this.value)">
+                    <option value="movie">Movie Mode</option>
+                    <option value="tv">Series Mode</option>
                 </select>
             </div>
 
@@ -141,6 +165,46 @@ UI_HTML = """
 let sCount = 0;
 let rawTMDB = null;
 
+function switchSystem(type) {
+    document.getElementById('btn_auto').classList.remove('active');
+    document.getElementById('btn_manual').classList.remove('active');
+    if(type === 'auto') {
+        document.getElementById('btn_auto').classList.add('active');
+        document.getElementById('auto_search_area').style.display = 'block';
+        document.getElementById('editor_form').style.display = 'none';
+    } else {
+        document.getElementById('btn_manual').classList.add('active');
+        document.getElementById('auto_search_area').style.display = 'none';
+        document.getElementById('results').innerHTML = '';
+        openManualEditor();
+    }
+}
+
+function openManualEditor() {
+    document.getElementById('editor_form').style.display = 'block';
+    document.getElementById('e_title').value = '';
+    document.getElementById('e_backdrop').value = '';
+    document.getElementById('e_lang').value = 'Hindi / English';
+    document.getElementById('e_date').value = '';
+    document.getElementById('e_story').value = '';
+    document.getElementById('e_dir_name').value = '';
+    document.getElementById('e_dir_img').value = '';
+    document.getElementById('e_cast_list').innerHTML = '';
+    document.getElementById('e_gallery_list').innerHTML = '';
+    toggleLinkUI('movie');
+}
+
+function toggleLinkUI(type) {
+    document.getElementById('type').value = type;
+    if(type === 'movie') {
+        document.getElementById('movie_ui').style.display = 'block';
+        document.getElementById('series_ui').style.display = 'none';
+    } else {
+        document.getElementById('movie_ui').style.display = 'none';
+        document.getElementById('series_ui').style.display = 'block';
+    }
+}
+
 async function searchTMDB() {
     const q = document.getElementById('query').value;
     const t = document.getElementById('type').value;
@@ -160,6 +224,7 @@ async function selectItem(id, type) {
     rawTMDB = await res.json();
     document.getElementById('results').innerHTML = '';
     document.getElementById('editor_form').style.display = 'block';
+    document.getElementById('manual_type_select').value = type;
     
     document.getElementById('e_title').value = rawTMDB.title || rawTMDB.name;
     document.getElementById('e_backdrop').value = `https://image.tmdb.org/t/p/original${rawTMDB.backdrop_path}`;
@@ -175,9 +240,10 @@ async function selectItem(id, type) {
 
     let cH = '';
     rawTMDB.credits.cast.slice(0, 6).forEach(c => {
-        cH += `<div class="col-md-4 mb-2 p-2 border border-secondary rounded">
-            <input type="text" class="form-control form-control-sm cn" value="${c.name}">
-            <input type="text" class="form-control form-control-sm ci" value="https://image.tmdb.org/t/p/w185${c.profile_path}">
+        cH += `<div class="col-md-4 mb-2 p-2 border border-secondary rounded position-relative">
+            <button class="btn-remove" onclick="this.parentElement.remove()">X</button>
+            <input type="text" class="form-control form-control-sm cn" placeholder="Name" value="${c.name}">
+            <input type="text" class="form-control form-control-sm ci" placeholder="Image URL" value="https://image.tmdb.org/t/p/w185${c.profile_path}">
             <input type="hidden" class="cid" value="${c.id}">
         </div>`;
     });
@@ -185,17 +251,32 @@ async function selectItem(id, type) {
 
     let gH = '';
     rawTMDB.images.backdrops.slice(0, 8).forEach(img => {
-        gH += `<div class="col-md-6"><input type="text" class="form-control form-control-sm gi" value="https://image.tmdb.org/t/p/original${img.file_path}"></div>`;
+        gH += `<div class="col-md-6 position-relative">
+            <button class="btn-remove" onclick="this.parentElement.remove()">X</button>
+            <input type="text" class="form-control form-control-sm gi" value="https://image.tmdb.org/t/p/original${img.file_path}">
+        </div>`;
     });
     document.getElementById('e_gallery_list').innerHTML = gH;
 
-    if(type === 'movie') {
-        document.getElementById('movie_ui').style.display = 'block';
-        document.getElementById('series_ui').style.display = 'none';
-    } else {
-        document.getElementById('movie_ui').style.display = 'none';
-        document.getElementById('series_ui').style.display = 'block';
-    }
+    toggleLinkUI(type);
+}
+
+function addManualCast() {
+    const div = document.createElement('div');
+    div.className = 'col-md-4 mb-2 p-2 border border-secondary rounded position-relative';
+    div.innerHTML = `<button class="btn-remove" onclick="this.parentElement.remove()">X</button>
+        <input type="text" class="form-control form-control-sm cn" placeholder="Actor Name">
+        <input type="text" class="form-control form-control-sm ci" placeholder="Image URL">
+        <input type="hidden" class="cid" value="0">`;
+    document.getElementById('e_cast_list').appendChild(div);
+}
+
+function addManualGallery() {
+    const div = document.createElement('div');
+    div.className = 'col-md-6 position-relative';
+    div.innerHTML = `<button class="btn-remove" onclick="this.parentElement.remove()">X</button>
+        <input type="text" class="form-control form-control-sm gi" placeholder="Landscape Image URL">`;
+    document.getElementById('e_gallery_list').appendChild(div);
 }
 
 function addSeason(name = "") {
@@ -235,19 +316,31 @@ function addEpisode(sId, name = "", links = {}) {
 
 async function generateFinalHTML() {
     const castData = [];
-    const castEls = document.querySelectorAll('.cid');
+    const castEls = document.querySelectorAll('.cn');
+    const castImgs = document.querySelectorAll('.ci');
+    const castIds = document.querySelectorAll('.cid');
+
     for(let i=0; i<castEls.length; i++){
-        const res = await fetch(`/api/person?id=${castEls[i].value}`);
-        const p = await res.json();
-        const bestWork = p.combined_credits.cast.sort((a,b) => b.vote_count - a.vote_count).slice(0,5).map(m => m.title || m.name).join(', ');
+        let details = { birthday: 'N/A', place_of_birth: 'N/A', biography: 'Manual Entry Cast', count: 'N/A', best: 'N/A' };
+        
+        if(castIds[i].value !== "0") {
+            const res = await fetch(`/api/person?id=${castIds[i].value}`);
+            const p = await res.json();
+            details.birthday = p.birthday || 'Unknown';
+            details.place_of_birth = p.place_of_birth || 'Unknown';
+            details.biography = p.biography ? p.biography.slice(0, 600).replace(/'/g, "").replace(/"/g, "") + "..." : "No Biography.";
+            details.count = p.combined_credits ? p.combined_credits.cast.length : '0';
+            details.best = p.combined_credits ? p.combined_credits.cast.sort((a,b) => b.vote_count - a.vote_count).slice(0,5).map(m => m.title || m.name).join(', ') : 'N/A';
+        }
+
         castData.push({
-            name: document.querySelectorAll('.cn')[i].value,
-            img: document.querySelectorAll('.ci')[i].value,
-            born: p.birthday || 'Unknown',
-            place: p.place_of_birth || 'Unknown',
-            bio: p.biography ? p.biography.slice(0, 600).replace(/'/g, "").replace(/"/g, "") + "..." : "No Biography.",
-            count: p.combined_credits.cast.length,
-            best: bestWork
+            name: castEls[i].value,
+            img: castImgs[i].value,
+            born: details.birthday,
+            place: details.place_of_birth,
+            bio: details.biography,
+            count: details.count,
+            best: details.best
         });
     }
 
@@ -296,6 +389,7 @@ function importCode() {
         document.getElementById('e_trailer').value = meta.trailer;
         document.getElementById('e_ad_count').value = meta.ad_count;
         document.getElementById('type').value = meta.type;
+        document.getElementById('manual_type_select').value = meta.type;
         
         if(meta.type === 'movie') {
             document.getElementById('movie_ui').style.display = 'block';
