@@ -1,14 +1,21 @@
 import os
 import json
 import base64
-from flask import Flask, render_template_string, request, jsonify
+from flask import Flask, render_template_string, request, jsonify, url_for
 import requests
 import re
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
 # configuration
 TMDB_API_KEY = "7dc544d9253bccc3cfecc1c677f69819"
+UPLOAD_FOLDER = 'static/uploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 AD_LINKS = [
     "https://www.effectivecpmnetwork.com/xqmb731x1?key=0267816362fc4320de630e064b317db1",
     "https://www.effectivecpmnetwork.com/qw8kn1x7h?key=5fdb7c5ecd8aff08f9ffb43334a9d3e6",
@@ -48,6 +55,10 @@ UI_HTML = """
         
         /* Search result text style */
         .res-title { font-size: 14px; font-weight: bold; color: var(--accent); text-align: center; margin-top: 8px; }
+        
+        /* Upload Helper Style */
+        .up-btn { font-size: 11px; background: #334155; color: #38bdf8; border: none; border-radius: 4px; padding: 2px 8px; cursor: pointer; margin-bottom: 5px; display: inline-block; }
+        .up-btn:hover { background: #475569; }
     </style>
 </head>
 <body>
@@ -85,13 +96,23 @@ UI_HTML = """
             <div class="section-header">1. BASIC DETAILS & MAIN THUMBNAIL</div>
             <div class="row g-3">
                 <div class="col-md-6"><label>Title</label><input type="text" id="e_title" class="form-control"></div>
-                <div class="col-md-6"><label>Main Backdrop (Landscape)</label><input type="text" id="e_backdrop" class="form-control"></div>
+                <div class="col-md-6">
+                    <label>Main Backdrop (Landscape)</label>
+                    <button class="up-btn" onclick="triggerFile('main_up')">Upload Image</button>
+                    <input type="file" id="main_up" style="display:none" onchange="uploadImage(this, 'e_backdrop')">
+                    <input type="text" id="e_backdrop" class="form-control">
+                </div>
                 <div class="col-md-4"><label>Language</label><input type="text" id="e_lang" class="form-control"></div>
                 <div class="col-md-4"><label>Release Date</label><input type="text" id="e_date" class="form-control"></div>
                 <div class="col-md-4"><label>Trailer ID</label><input type="text" id="e_trailer" class="form-control"></div>
                 <div class="col-md-12"><label>Storyline</label><textarea id="e_story" class="form-control" rows="4"></textarea></div>
                 <div class="col-md-6"><label>Director Name</label><input type="text" id="e_dir_name" class="form-control"></div>
-                <div class="col-md-6"><label>Director Profile Image</label><input type="text" id="e_dir_img" class="form-control"></div>
+                <div class="col-md-6">
+                    <label>Director Profile Image</label>
+                    <button class="up-btn" onclick="triggerFile('dir_up')">Upload Image</button>
+                    <input type="file" id="dir_up" style="display:none" onchange="uploadImage(this, 'e_dir_img')">
+                    <input type="text" id="e_dir_img" class="form-control">
+                </div>
             </div>
 
             <div class="section-header">2. CAST MEMBERS <button class="btn btn-sm btn-outline-info float-end" onclick="addManCast()">+ Add Cast</button></div>
@@ -150,6 +171,34 @@ UI_HTML = """
 
 <script>
 let sCount = 0;
+let fileCounter = 0;
+
+function triggerFile(id) { document.getElementById(id).click(); }
+
+async function uploadImage(input, targetId) {
+    if (!input.files || !input.files[0]) return;
+    const formData = new FormData();
+    formData.append('file', input.files[0]);
+    
+    const targetInput = document.getElementById(targetId);
+    const originalText = targetInput.value;
+    targetInput.value = "Uploading...";
+
+    try {
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.url) {
+            targetInput.value = window.location.origin + data.url;
+        } else {
+            alert("Upload failed!");
+            targetInput.value = originalText;
+        }
+    } catch (e) {
+        alert("Error uploading image");
+        targetInput.value = originalText;
+    }
+}
+
 function switchSys(m) {
     document.getElementById('s1').classList.toggle('active', m==='auto');
     document.getElementById('s2').classList.toggle('active', m==='manual');
@@ -195,29 +244,53 @@ async function selectItem(id, type) {
     document.getElementById('e_trailer').value = trailer ? trailer.key : '';
     let cH = '';
     raw.credits.cast.slice(0, 6).forEach(c => {
+        fileCounter++;
+        let upId = 'up_c_' + fileCounter;
+        let inpId = 'inp_c_' + fileCounter;
         cH += `<div class="col-md-4 mb-2 p-2 border border-secondary rounded position-relative">
             <button class="btn-remove" onclick="this.parentElement.remove()">X</button>
             <input type="text" class="form-control form-control-sm cn" value="${c.name}">
-            <input type="text" class="form-control form-control-sm ci" value="https://image.tmdb.org/t/p/w185${c.profile_path}">
+            <button class="up-btn" onclick="triggerFile('${upId}')">Upload Cast Img</button>
+            <input type="file" id="${upId}" style="display:none" onchange="uploadImage(this, '${inpId}')">
+            <input type="text" id="${inpId}" class="form-control form-control-sm ci" value="https://image.tmdb.org/t/p/w185${c.profile_path}">
             <input type="hidden" class="cid" value="${c.id}"></div>`;
     });
     document.getElementById('e_cast_list').innerHTML = cH;
     let gH = '';
     raw.images.backdrops.slice(0, 8).forEach(img => {
+        fileCounter++;
+        let upId = 'up_g_' + fileCounter;
+        let inpId = 'inp_g_' + fileCounter;
         gH += `<div class="col-md-6 position-relative"><button class="btn-remove" onclick="this.parentElement.remove()">X</button>
-            <input type="text" class="form-control form-control-sm gi" value="https://image.tmdb.org/t/p/original${img.file_path}"></div>`;
+            <button class="up-btn" onclick="triggerFile('${upId}')">Upload Screen</button>
+            <input type="file" id="${upId}" style="display:none" onchange="uploadImage(this, '${inpId}')">
+            <input type="text" id="${inpId}" class="form-control form-control-sm gi" value="https://image.tmdb.org/t/p/original${img.file_path}"></div>`;
     });
     document.getElementById('e_gallery_list').innerHTML = gH;
     toggleMode(type);
 }
 function addManCast() {
+    fileCounter++;
+    let upId = 'up_c_' + fileCounter;
+    let inpId = 'inp_c_' + fileCounter;
     const d = document.createElement('div'); d.className='col-md-4 mb-2 p-2 border border-secondary rounded position-relative';
-    d.innerHTML=`<button class="btn-remove" onclick="this.parentElement.remove()">X</button><input type="text" class="form-control form-control-sm cn" placeholder="Name"><input type="text" class="form-control form-control-sm ci" placeholder="Img URL"><input type="hidden" class="cid" value="0">`;
+    d.innerHTML=`<button class="btn-remove" onclick="this.parentElement.remove()">X</button>
+        <input type="text" class="form-control form-control-sm cn" placeholder="Name">
+        <button class="up-btn" onclick="triggerFile('${upId}')">Upload Cast Img</button>
+        <input type="file" id="${upId}" style="display:none" onchange="uploadImage(this, '${inpId}')">
+        <input type="text" id="${inpId}" class="form-control form-control-sm ci" placeholder="Img URL">
+        <input type="hidden" class="cid" value="0">`;
     document.getElementById('e_cast_list').appendChild(d);
 }
 function addManGal() {
+    fileCounter++;
+    let upId = 'up_g_' + fileCounter;
+    let inpId = 'inp_g_' + fileCounter;
     const d = document.createElement('div'); d.className='col-md-6 position-relative';
-    d.innerHTML=`<button class="btn-remove" onclick="this.parentElement.remove()">X</button><input type="text" class="form-control form-control-sm gi" placeholder="Screenshot URL">`;
+    d.innerHTML=`<button class="btn-remove" onclick="this.parentElement.remove()">X</button>
+        <button class="up-btn" onclick="triggerFile('${upId}')">Upload Screen</button>
+        <input type="file" id="${upId}" style="display:none" onchange="uploadImage(this, '${inpId}')">
+        <input type="text" id="${inpId}" class="form-control form-control-sm gi" placeholder="Screenshot URL">`;
     document.getElementById('e_gallery_list').appendChild(d);
 }
 function addSeason(name="") {
@@ -292,6 +365,21 @@ function previewToggle() { const p = document.getElementById('preview_area'); p.
 
 @app.route('/')
 def index(): return render_template_string(UI_HTML)
+
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file"}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+    if file:
+        filename = secure_filename(file.filename)
+        # uniqueness to avoid overwrite
+        filename = f"{os.urandom(4).hex()}_{filename}"
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        file_url = url_for('static', filename='uploads/' + filename)
+        return jsonify({"url": file_url})
 
 @app.route('/api/search')
 def search_api():
