@@ -45,6 +45,9 @@ UI_HTML = """
         .system-toggle { display: flex; gap: 10px; margin-bottom: 20px; }
         .sys-btn { flex: 1; padding: 15px; border: 2px solid #334155; background: #1e293b; color: white; border-radius: 10px; font-weight: bold; cursor: pointer; }
         .sys-btn.active { border-color: var(--accent); color: var(--accent); }
+        
+        /* Search result text style */
+        .res-title { font-size: 14px; font-weight: bold; color: var(--accent); text-align: center; margin-top: 8px; }
     </style>
 </head>
 <body>
@@ -66,7 +69,7 @@ UI_HTML = """
         <div id="search_area">
             <div class="row g-2 mb-4">
                 <div class="col-md-5"><input type="text" id="query" class="form-control" placeholder="Search Movie Name..."></div>
-                <div class="col-md-3"><input type="text" id="imdb_box" class="form-control" placeholder="IMDB ID (tt1234567)"></div>
+                <div class="col-md-3"><input type="text" id="imdb_link" class="form-control" placeholder="IMDB Link or ID (tt1234567)"></div>
                 <div class="col-md-2">
                     <select id="type" class="form-select bg-dark text-white border-secondary" style="height:50px">
                         <option value="movie">Movie</option><option value="tv">Web Series</option>
@@ -105,9 +108,9 @@ UI_HTML = """
                 </select>
             </div>
 
-            <div class="mt-4"><label class="text-info fw-bold">Select Post Type Mode:</label>
-                <select id="link_sys_type" class="form-select bg-dark text-white" onchange="toggleLinkUI(this.value)">
-                    <option value="movie">Movie Mode</option><option value="tv">Series Mode</option>
+            <div class="mt-4"><label class="text-info fw-bold">Select Post Type:</label>
+                <select id="link_type" class="form-select bg-dark text-white" onchange="toggleMode(this.value)">
+                    <option value="movie">Movie Mode</option><option value="tv">Web Series Mode</option>
                 </select>
             </div>
 
@@ -151,25 +154,27 @@ function switchSys(m) {
     document.getElementById('s1').classList.toggle('active', m==='auto');
     document.getElementById('s2').classList.toggle('active', m==='manual');
     document.getElementById('search_area').style.display = m==='auto' ? 'block' : 'none';
-    if(m==='manual') { document.getElementById('editor_form').style.display='block'; toggleLinkUI('movie'); }
+    if(m==='manual') { document.getElementById('editor_form').style.display='block'; toggleMode('movie'); }
 }
-function toggleLinkUI(t) {
+function toggleMode(t) {
     document.getElementById('movie_ui').style.display = t==='movie' ? 'block' : 'none';
     document.getElementById('series_ui').style.display = t==='tv' ? 'block' : 'none';
 }
 async function searchTMDB() {
     const q = document.getElementById('query').value;
-    const im = document.getElementById('imdb_box').value;
+    const im = document.getElementById('imdb_link').value;
     const t = document.getElementById('type').value;
     const res = await fetch(`/api/search?q=${q}&imdb=${im}&type=${t}`);
     const data = await res.json();
     let h = '';
     data.results.forEach(i => {
-        let year = (i.release_date || i.first_air_date || "").split('-')[0];
         let title = i.title || i.name;
+        let year = (i.release_date || i.first_air_date || "").split('-')[0];
         h += `<div class="col-md-4 mb-3" onclick="selectItem('${i.id}', '${t}')" style="cursor:pointer">
-            <div class="card bg-dark p-1"><img src="https://image.tmdb.org/t/p/w500${i.backdrop_path}" class="img-fluid rounded">
-            <p class="text-center small mt-1 mb-0">${title} (${year || 'N/A'})</p></div></div>`;
+            <div class="card bg-dark p-1">
+                <img src="https://image.tmdb.org/t/p/w500${i.backdrop_path}" class="img-fluid rounded">
+                <div class="res-title">${title} (${year || 'N/A'})</div>
+            </div></div>`;
     });
     document.getElementById('results').innerHTML = h;
 }
@@ -178,7 +183,7 @@ async function selectItem(id, type) {
     const raw = await res.json();
     document.getElementById('results').innerHTML = '';
     document.getElementById('editor_form').style.display = 'block';
-    document.getElementById('link_sys_type').value = type;
+    document.getElementById('link_type').value = type;
     document.getElementById('e_title').value = raw.title || raw.name;
     document.getElementById('e_backdrop').value = `https://image.tmdb.org/t/p/original${raw.backdrop_path}`;
     document.getElementById('e_date').value = raw.release_date || raw.first_air_date;
@@ -186,8 +191,8 @@ async function selectItem(id, type) {
     const d = raw.credits.crew.find(c => c.job === 'Director');
     document.getElementById('e_dir_name').value = d ? d.name : '';
     document.getElementById('e_dir_img').value = d ? `https://image.tmdb.org/t/p/w185${d.profile_path}` : '';
-    const tr = raw.videos.results.find(v => v.type === 'Trailer');
-    document.getElementById('e_trailer').value = tr ? tr.key : '';
+    const trailer = raw.videos.results.find(v => v.type === 'Trailer');
+    document.getElementById('e_trailer').value = trailer ? trailer.key : '';
     let cH = '';
     raw.credits.cast.slice(0, 6).forEach(c => {
         cH += `<div class="col-md-4 mb-2 p-2 border border-secondary rounded position-relative">
@@ -203,7 +208,7 @@ async function selectItem(id, type) {
             <input type="text" class="form-control form-control-sm gi" value="https://image.tmdb.org/t/p/original${img.file_path}"></div>`;
     });
     document.getElementById('e_gallery_list').innerHTML = gH;
-    toggleLinkUI(type);
+    toggleMode(type);
 }
 function addManCast() {
     const d = document.createElement('div'); d.className='col-md-4 mb-2 p-2 border border-secondary rounded position-relative';
@@ -212,18 +217,36 @@ function addManCast() {
 }
 function addManGal() {
     const d = document.createElement('div'); d.className='col-md-6 position-relative';
-    d.innerHTML=`<button class="btn-remove" onclick="this.parentElement.remove()">X</button><input type="text" class="form-control form-control-sm gi" placeholder="Screenshot Link">`;
+    d.innerHTML=`<button class="btn-remove" onclick="this.parentElement.remove()">X</button><input type="text" class="form-control form-control-sm gi" placeholder="Screenshot URL">`;
     document.getElementById('e_gallery_list').appendChild(d);
 }
 function addSeason(name="") {
     sCount++; const sId = `s_${sCount}`; const d = document.createElement('div'); d.className='season-item'; d.id=sId;
-    d.innerHTML = `<button class="btn-remove" onclick="this.parentElement.remove()">REMOVE</button><div class="d-flex gap-3 mb-3"><input type="text" class="form-control fw-bold st" value="${name||'Season '+sCount}"><button class="btn btn-info fw-bold" onclick="addEpisode('${sId}')">+ EPISODE</button></div><div class="ep-wrap" data-count="0"></div>`;
+    let sFormat = "S" + String(sCount).padStart(2, '0');
+    d.innerHTML = `<button class="btn-remove" onclick="this.parentElement.remove()">REMOVE</button>
+        <div class="d-flex gap-3 mb-3"><input type="text" class="form-control fw-bold st" value="${name||'Season '+sCount}" data-sformat="${sFormat}">
+        <button class="btn btn-info fw-bold" onclick="addEpisode('${sId}')">+ ADD EPISODE</button></div><div class="ep-wrap" data-count="0"></div>`;
     document.getElementById('season_container').appendChild(d);
 }
 function addEpisode(sId, name="", links={}) {
-    const w = document.querySelector(`#${sId} .ep-wrap`); let c = parseInt(w.dataset.count)+1; w.dataset.count=c;
+    const w = document.querySelector(`#${sId} .ep-wrap`);
+    let c = parseInt(w.dataset.count)+1; w.dataset.count=c;
+    const sFormat = document.querySelector(`#${sId} .st`).dataset.sformat;
+    const eFormat = sFormat + " E" + String(c).padStart(2, '0');
+    
     const d = document.createElement('div'); d.className='episode-item';
-    d.innerHTML = `<button class="btn-remove" onclick="this.parentElement.remove()">REMOVE</button><input type="text" class="form-control fw-bold et mb-2" value="${name||'Episode '+c}"><div class="grid-4"><div>8K<input type="text" data-q="8K" class="form-control eq" value="${links['8K']||''}"></div><div>4K<input type="text" data-q="4K" class="form-control eq" value="${links['4K']||''}"></div><div>2K<input type="text" data-q="2K" class="form-control eq" value="${links['2K']||''}"></div><div>1080p<input type="text" data-q="1080p" class="form-control eq" value="${links['1080p']||''}"></div><div>720p<input type="text" data-q="720p" class="form-control eq" value="${links['720p']||''}"></div><div>480p<input type="text" data-q="480p" class="form-control eq" value="${links['480p']||''}"></div><div>360p<input type="text" data-q="360p" class="form-control eq" value="${links['360p']||''}"></div><div>140p<input type="text" data-q="140p" class="form-control eq" value="${links['140p']||''}"></div></div>`;
+    d.innerHTML = `<button class="btn-remove" onclick="this.parentElement.remove()">REMOVE</button>
+        <input type="text" class="form-control fw-bold et mb-2" value="${name||eFormat}">
+        <div class="grid-4">
+            <div>8K<input type="text" data-q="8K" class="form-control eq" value="${links['8K']||''}"></div>
+            <div>4K<input type="text" data-q="4K" class="form-control eq" value="${links['4K']||''}"></div>
+            <div>2K<input type="text" data-q="2K" class="form-control eq" value="${links['2K']||''}"></div>
+            <div>1080p<input type="text" data-q="1080p" class="form-control eq" value="${links['1080p']||''}"></div>
+            <div>720p<input type="text" data-q="720p" class="form-control eq" value="${links['720p']||''}"></div>
+            <div>480p<input type="text" data-q="480p" class="form-control eq" value="${links['480p']||''}"></div>
+            <div>360p<input type="text" data-q="360p" class="form-control eq" value="${links['360p']||''}"></div>
+            <div>140p<input type="text" data-q="140p" class="form-control eq" value="${links['140p']||''}"></div>
+        </div>`;
     w.appendChild(d);
 }
 async function generateFinalHTML() {
@@ -238,7 +261,7 @@ async function generateFinalHTML() {
         lang: document.getElementById('e_lang').value, date: document.getElementById('e_date').value,
         story: document.getElementById('e_story').value, dir_name: document.getElementById('e_dir_name').value,
         dir_img: document.getElementById('e_dir_img').value, trailer: document.getElementById('e_trailer').value,
-        ad_count: document.getElementById('e_ad_count').value, type: document.getElementById('link_sys_type').value,
+        ad_count: document.getElementById('e_ad_count').value, type: document.getElementById('link_type').value,
         cast: castData, gallery: Array.from(document.querySelectorAll('.gi')).map(i=>i.value),
         movieLinks: Array.from(document.querySelectorAll('.mq')).filter(i=>i.value).map(i=>({q:i.dataset.q, url:i.value})),
         seasons: Array.from(document.querySelectorAll('.season-item')).map(s=>({ name: s.querySelector('.st').value, episodes: Array.from(s.querySelectorAll('.episode-item')).map(e=>({ name: e.querySelector('.et').value, links: Array.from(e.querySelectorAll('.eq')).filter(i=>i.value).map(i=>({q:i.dataset.q, url:i.value})) })) }))
@@ -255,12 +278,12 @@ function importCode() {
         document.getElementById('e_lang').value=meta.lang; document.getElementById('e_date').value=meta.date;
         document.getElementById('e_story').value=meta.story; document.getElementById('e_dir_name').value=meta.dir_name;
         document.getElementById('e_dir_img').value=meta.dir_img; document.getElementById('e_trailer').value=meta.trailer;
-        document.getElementById('e_ad_count').value=meta.ad_count; document.getElementById('link_sys_type').value=meta.type;
-        if(meta.type === 'movie') { toggleLinkUI('movie'); meta.movieLinks.forEach(l => { const i = document.querySelector(`.mq[data-q="${l.q}"]`); if(i) i.value = l.url; }); }
-        else { toggleLinkUI('tv'); document.getElementById('season_container').innerHTML = ''; sCount = 0; meta.seasons.forEach(s => { addSeason(s.name); const sId=`s_${sCount}`; s.episodes.forEach(e => { const lObj={}; e.links.forEach(ln=>lObj[ln.q]=ln.url); addEpisode(sId, e.name, lObj); }); }); }
+        document.getElementById('e_ad_count').value=meta.ad_count; document.getElementById('link_type').value=meta.type;
+        if(meta.type === 'movie') { toggleMode('movie'); meta.movieLinks.forEach(l => { const i = document.querySelector(`.mq[data-q="${l.q}"]`); if(i) i.value = l.url; }); }
+        else { toggleMode('tv'); document.getElementById('season_container').innerHTML = ''; sCount = 0; meta.seasons.forEach(s => { addSeason(s.name); const sId=`s_${sCount}`; s.episodes.forEach(e => { const lObj={}; e.links.forEach(ln=>lObj[ln.q]=ln.url); addEpisode(sId, e.name, lObj); }); }); }
     } catch(e) { alert("Invalid Code!"); }
 }
-function copyHTML() { navigator.clipboard.writeText(document.getElementById('html_box').innerText); alert("Copied!"); }
+function copyHTML() { navigator.clipboard.writeText(document.getElementById('html_box').innerText); alert("HTML Copied!"); }
 function previewToggle() { const p = document.getElementById('preview_area'); p.style.display = p.style.display==='none'?'block':'none'; }
 </script>
 </body>
@@ -293,29 +316,32 @@ def person_api():
 
 @app.route('/api/generate', methods=['POST'])
 def generate_api():
-    data = request.json
-    meta_b64 = base64.b64encode(json.dumps(data).encode()).decode()
-    year = data['date'].split('-')[0] if data['date'] else "N/A"
-    
-    cast_h = "".join([f'<div class="c-item" onclick="shAc(\'{c["name"]}\',\'{c["img"]}\',\'{c["born"]}\',\'{c["place"]}\',\'{c["count"]}\',\'{c["best"]}\',`{c["bio"]}`, \'{data["title"]}\', \'{year}\')"><img src="{c["img"]}"><p>{c["name"]}</p></div>' for c in data['cast']])
-    gal_h = "".join([f'<img src="{i}">' for i in data['gallery']])
-    
-    m_btns = '<div class="btn-grid">' + "".join([f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre">{l["q"]} Premium Download</a>' for l in data['movieLinks']]) + '</div>'
-    
-    s_btns = '<div class="btn-grid">' + "".join([f'<button class="btn-pre s-btn" onclick="tgS(\'s{i}\')">📂 {s["name"]}</button>' for i, s in enumerate(data['seasons'])]) + '</div>'
-    for i, s in enumerate(data['seasons']):
-        s_btns += f'<div id="s{i}" class="ep-box" style="display:none;"><div class="btn-grid">'
-        for j, ep in enumerate(s['episodes']): s_btns += f'<button class="btn-pre ep-btn" onclick="tgE(\'s{i}e{j}\')">🎬 {ep["name"]}</button>'
-        s_btns += '</div>'
-        for j, ep in enumerate(s['episodes']):
-            s_btns += f'<div id="s{i}e{j}" class="q-box" style="display:none;"><div class="btn-grid">'
-            for l in ep['links']: s_btns += f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre q-btn">{l["q"]} Link</a>'
-            s_btns += '</div></div>'
+    try:
+        data = request.json
+        meta_b64 = base64.b64encode(json.dumps(data).encode()).decode()
+        m_year = data['date'][:4] if data['date'] else "N/A"
+        
+        cast_h = "".join([f'<div class="c-item" onclick="shAc(\'{c["name"]}\',\'{c["img"]}\',\'{c["born"]}\',\'{c["place"]}\',\'{c["count"]}\',\'{c["best"]}\',`{c["bio"]}`, \'{data["title"]}\', \'{m_year}\')"><img src="{c["img"]}"><p>{c["name"]}</p></div>' for c in data['cast']])
+        gal_h = "".join([f'<img src="{i}">' for i in data['gallery']])
+        
+        # Premium Download Box Styling
+        m_btns = '<div class="premium-box"><div class="btn-grid">' + "".join([f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre">{l["q"]} Premium Download</a>' for l in data['movieLinks']]) + '</div></div>'
+        
+        s_btns = '<div class="premium-box"><div class="btn-grid">' + "".join([f'<button class="btn-pre s-btn" onclick="tgS(\'s{i}\')">📂 {s["name"]}</button>' for i, s in enumerate(data['seasons'])]) + '</div>'
+        for i, s in enumerate(data['seasons']):
+            s_btns += f'<div id="s{i}" class="ep-box" style="display:none;"><div class="btn-grid">'
+            for j, ep in enumerate(s['episodes']): s_btns += f'<button class="btn-pre ep-btn" onclick="tgE(\'s{i}e{j}\')">🎬 {ep["name"]}</button>'
+            s_btns += '</div>'
+            for j, ep in enumerate(s['episodes']):
+                s_btns += f'<div id="s{i}e{j}" class="q-box" style="display:none;"><div class="btn-grid">'
+                for l in ep['links']: s_btns += f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre q-btn">{l["q"]} Link</a>'
+                s_btns += '</div></div>'
+            s_btns += '</div>'
         s_btns += '</div>'
 
-    tg_box_html = """<div class="tg-main-box"><h4>🚀 JOIN OUR TELEGRAM CHANNELS</h4><div class="tg-btn-grid"><a href="https://t.me/FlixBoxsOfficial" target="_blank">Official Channel</a><a href="http://t.me/FlixBoxs" target="_blank">Backup Channel</a><a href="https://t.me/FlixBoxsNew" target="_blank">Movie Channel</a><a href="https://t.me/+bYeiFHL2OgM3NWZl" target="_blank">Chat Group</a></div></div>"""
+        tg_box_html = """<div class="tg-main-box"><h4>🚀 JOIN OUR TELEGRAM CHANNELS</h4><div class="tg-btn-grid"><a href="https://t.me/FlixBoxsOfficial" target="_blank">Official Channel</a><a href="http://t.me/FlixBoxs" target="_blank">Backup Channel</a><a href="https://t.me/FlixBoxsNew" target="_blank">Movie Channel</a><a href="https://t.me/+bYeiFHL2OgM3NWZl" target="_blank">Chat Group</a></div></div>"""
 
-    blogger_html = f"""
+        blogger_html = f"""
 <!--BLOGGER POST START-->
 <style>
     .p-box {{ background: #0b0f1a; color: #f1f5f9; padding: 25px; border-radius: 20px; font-family: sans-serif; position: relative; }}
@@ -328,8 +354,9 @@ def generate_api():
     .g-gr {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
     .g-gr img {{ width: 100%; border-radius: 12px; }}
     .btn-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }}
-    .btn-pre {{ display: block; background: linear-gradient(135deg, #38bdf8, #2563eb); color: #fff !important; text-align: center; padding: 15px; border-radius: 12px; text-decoration: none !important; font-weight: 800; font-size: 14px; cursor: pointer; }}
+    .btn-pre {{ display: block; background: linear-gradient(135deg, #38bdf8, #2563eb); color: #fff !important; text-align: center; padding: 15px; border-radius: 12px; text-decoration: none !important; font-weight: 800; border: none; cursor: pointer; font-size: 14px; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); transition: 0.3s; }}
     .un-btn {{ display: block; background: #fbbf24; color: #000 !important; text-align: center; padding: 18px; border-radius: 15px; font-weight: 900; font-size: 20px; cursor: pointer; margin: 30px 0 40px 0; border: none; width: 100%; }}
+    .premium-box {{ background: #161e2e; border: 2px solid #38bdf8; padding: 20px; border-radius: 18px; margin-top: 10px; box-shadow: inset 0 0 10px rgba(56, 189, 248, 0.2); }}
     .ac-m {{ position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #161e2e; border: 3px solid #38bdf8; width: 90%; max-width: 450px; padding: 25px; border-radius: 20px; z-index: 10000; display: none; color: #fff; box-shadow: 0 0 100px rgba(0,0,0,0.9); }}
     .ac-m img {{ width: 100px; height: 100px; border-radius: 50%; border: 4px solid #38bdf8; margin: 0 auto 15px; display: block; object-fit: cover; }}
     .tg-main-box {{ background: #161e2e; border: 2px solid #38bdf8; padding: 15px; border-radius: 15px; margin-top: 15px; text-align: center; }}
@@ -350,7 +377,6 @@ def generate_api():
     <div class="h-ln">OFFICIAL TRAILER</div>
     <iframe width="100%" height="350" src="https://www.youtube.com/embed/{data['trailer']}" frameborder="0" allowfullscreen style="border-radius:15px;"></iframe>
     
-    <!-- Unlock Button with Gap & Channels -->
     <button class="un-btn" onclick="document.getElementById('dl-zone').style.display='block';this.style.display='none'">🔓 UNLOCK DOWNLOAD LINKS</button>
     {tg_box_html}
 
@@ -390,7 +416,9 @@ def generate_api():
 </script>
 <!--MASTERDATA:{meta_b64}-->
 """
-    return jsonify({"html": blogger_html})
+        return jsonify({"html": blogger_html})
+    except Exception as e:
+        return jsonify({"html": f"Server Error: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
