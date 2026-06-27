@@ -4,17 +4,13 @@ import base64
 from flask import Flask, render_template_string, request, jsonify, url_for
 import requests
 import re
-from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
 # configuration
 TMDB_API_KEY = "7dc544d9253bccc3cfecc1c677f69819"
-UPLOAD_FOLDER = 'static/uploads'
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# আপনি এখানে আপনার নিজের ImgBB API Key দিতে পারেন, নিচে একটি দেওয়া হলো
+IMGBB_API_KEY = "3a886f481c9a4497e88942b1095594b2"
 
 AD_LINKS = [
     "https://www.effectivecpmnetwork.com/xqmb731x1?key=0267816362fc4320de630e064b317db1",
@@ -52,13 +48,13 @@ UI_HTML = """
         .system-toggle { display: flex; gap: 10px; margin-bottom: 20px; }
         .sys-btn { flex: 1; padding: 15px; border: 2px solid #334155; background: #1e293b; color: white; border-radius: 10px; font-weight: bold; cursor: pointer; }
         .sys-btn.active { border-color: var(--accent); color: var(--accent); }
-        
-        /* Search result text style */
         .res-title { font-size: 14px; font-weight: bold; color: var(--accent); text-align: center; margin-top: 8px; }
         
-        /* Upload Helper Style */
-        .up-btn { font-size: 11px; background: #334155; color: #38bdf8; border: none; border-radius: 4px; padding: 2px 8px; cursor: pointer; margin-bottom: 5px; display: inline-block; }
-        .up-btn:hover { background: #475569; }
+        /* Upload UI Style */
+        .up-ui { display: flex; gap: 5px; align-items: center; margin-bottom: 12px; }
+        .up-ui input { flex: 1; margin-bottom: 0 !important; }
+        .up-btn { background: #334155; color: #38bdf8; border: 1px solid #38bdf8; border-radius: 8px; padding: 0 15px; height: 50px; font-size: 12px; font-weight: bold; cursor: pointer; white-space: nowrap; transition: 0.3s; }
+        .up-btn:hover { background: #38bdf8; color: #000; }
     </style>
 </head>
 <body>
@@ -98,9 +94,11 @@ UI_HTML = """
                 <div class="col-md-6"><label>Title</label><input type="text" id="e_title" class="form-control"></div>
                 <div class="col-md-6">
                     <label>Main Backdrop (Landscape)</label>
-                    <button class="up-btn" onclick="triggerFile('main_up')">Upload Image</button>
-                    <input type="file" id="main_up" style="display:none" onchange="uploadImage(this, 'e_backdrop')">
-                    <input type="text" id="e_backdrop" class="form-control">
+                    <div class="up-ui">
+                        <input type="text" id="e_backdrop" class="form-control">
+                        <button class="up-btn" onclick="triggerUp('main_f')">Upload</button>
+                        <input type="file" id="main_f" style="display:none" onchange="handleUp(this, 'e_backdrop')">
+                    </div>
                 </div>
                 <div class="col-md-4"><label>Language</label><input type="text" id="e_lang" class="form-control"></div>
                 <div class="col-md-4"><label>Release Date</label><input type="text" id="e_date" class="form-control"></div>
@@ -109,9 +107,11 @@ UI_HTML = """
                 <div class="col-md-6"><label>Director Name</label><input type="text" id="e_dir_name" class="form-control"></div>
                 <div class="col-md-6">
                     <label>Director Profile Image</label>
-                    <button class="up-btn" onclick="triggerFile('dir_up')">Upload Image</button>
-                    <input type="file" id="dir_up" style="display:none" onchange="uploadImage(this, 'e_dir_img')">
-                    <input type="text" id="e_dir_img" class="form-control">
+                    <div class="up-ui">
+                        <input type="text" id="e_dir_img" class="form-control">
+                        <button class="up-btn" onclick="triggerUp('dir_f')">Upload</button>
+                        <input type="file" id="dir_f" style="display:none" onchange="handleUp(this, 'e_dir_img')">
+                    </div>
                 </div>
             </div>
 
@@ -171,32 +171,22 @@ UI_HTML = """
 
 <script>
 let sCount = 0;
-let fileCounter = 0;
+let fIdx = 0;
 
-function triggerFile(id) { document.getElementById(id).click(); }
+function triggerUp(id) { document.getElementById(id).click(); }
 
-async function uploadImage(input, targetId) {
-    if (!input.files || !input.files[0]) return;
+async function handleUp(input, targetId) {
+    if(!input.files[0]) return;
     const formData = new FormData();
     formData.append('file', input.files[0]);
-    
-    const targetInput = document.getElementById(targetId);
-    const originalText = targetInput.value;
-    targetInput.value = "Uploading...";
-
+    const target = document.getElementById(targetId);
+    const oldVal = target.value;
+    target.value = "Uploading...";
     try {
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const res = await fetch('/api/upload', { method:'POST', body:formData });
         const data = await res.json();
-        if (data.url) {
-            targetInput.value = window.location.origin + data.url;
-        } else {
-            alert("Upload failed!");
-            targetInput.value = originalText;
-        }
-    } catch (e) {
-        alert("Error uploading image");
-        targetInput.value = originalText;
-    }
+        target.value = data.url || oldVal;
+    } catch(e) { target.value = oldVal; alert("Upload Failed!"); }
 }
 
 function switchSys(m) {
@@ -205,10 +195,12 @@ function switchSys(m) {
     document.getElementById('search_area').style.display = m==='auto' ? 'block' : 'none';
     if(m==='manual') { document.getElementById('editor_form').style.display='block'; toggleMode('movie'); }
 }
+
 function toggleMode(t) {
     document.getElementById('movie_ui').style.display = t==='movie' ? 'block' : 'none';
     document.getElementById('series_ui').style.display = t==='tv' ? 'block' : 'none';
 }
+
 async function searchTMDB() {
     const q = document.getElementById('query').value;
     const im = document.getElementById('imdb_link').value;
@@ -227,6 +219,7 @@ async function searchTMDB() {
     });
     document.getElementById('results').innerHTML = h;
 }
+
 async function selectItem(id, type) {
     const res = await fetch(`/api/details?id=${id}&type=${type}`);
     const raw = await res.json();
@@ -244,55 +237,58 @@ async function selectItem(id, type) {
     document.getElementById('e_trailer').value = trailer ? trailer.key : '';
     let cH = '';
     raw.credits.cast.slice(0, 6).forEach(c => {
-        fileCounter++;
-        let upId = 'up_c_' + fileCounter;
-        let inpId = 'inp_c_' + fileCounter;
+        fIdx++; let fId = 'f_c_'+fIdx; let iId = 'i_c_'+fIdx;
         cH += `<div class="col-md-4 mb-2 p-2 border border-secondary rounded position-relative">
             <button class="btn-remove" onclick="this.parentElement.remove()">X</button>
             <input type="text" class="form-control form-control-sm cn" value="${c.name}">
-            <button class="up-btn" onclick="triggerFile('${upId}')">Upload Cast Img</button>
-            <input type="file" id="${upId}" style="display:none" onchange="uploadImage(this, '${inpId}')">
-            <input type="text" id="${inpId}" class="form-control form-control-sm ci" value="https://image.tmdb.org/t/p/w185${c.profile_path}">
+            <div class="up-ui">
+                <input type="text" id="${iId}" class="form-control form-control-sm ci" value="https://image.tmdb.org/t/p/w185${c.profile_path}">
+                <button class="up-btn" style="height:31px; padding:0 5px;" onclick="triggerUp('${fId}')">Up</button>
+                <input type="file" id="${fId}" style="display:none" onchange="handleUp(this, '${iId}')">
+            </div>
             <input type="hidden" class="cid" value="${c.id}"></div>`;
     });
     document.getElementById('e_cast_list').innerHTML = cH;
     let gH = '';
     raw.images.backdrops.slice(0, 8).forEach(img => {
-        fileCounter++;
-        let upId = 'up_g_' + fileCounter;
-        let inpId = 'inp_g_' + fileCounter;
-        gH += `<div class="col-md-6 position-relative"><button class="btn-remove" onclick="this.parentElement.remove()">X</button>
-            <button class="up-btn" onclick="triggerFile('${upId}')">Upload Screen</button>
-            <input type="file" id="${upId}" style="display:none" onchange="uploadImage(this, '${inpId}')">
-            <input type="text" id="${inpId}" class="form-control form-control-sm gi" value="https://image.tmdb.org/t/p/original${img.file_path}"></div>`;
+        fIdx++; let fId = 'f_g_'+fIdx; let iId = 'i_g_'+fIdx;
+        gH += `<div class="col-md-6 position-relative">
+            <button class="btn-remove" onclick="this.parentElement.remove()">X</button>
+            <div class="up-ui">
+                <input type="text" id="${iId}" class="form-control form-control-sm gi" value="https://image.tmdb.org/t/p/original${img.file_path}">
+                <button class="up-btn" style="height:31px; padding:0 5px;" onclick="triggerUp('${fId}')">Up</button>
+                <input type="file" id="${fId}" style="display:none" onchange="handleUp(this, '${iId}')">
+            </div></div>`;
     });
     document.getElementById('e_gallery_list').innerHTML = gH;
     toggleMode(type);
 }
+
 function addManCast() {
-    fileCounter++;
-    let upId = 'up_c_' + fileCounter;
-    let inpId = 'inp_c_' + fileCounter;
+    fIdx++; let fId = 'f_c_'+fIdx; let iId = 'i_c_'+fIdx;
     const d = document.createElement('div'); d.className='col-md-4 mb-2 p-2 border border-secondary rounded position-relative';
     d.innerHTML=`<button class="btn-remove" onclick="this.parentElement.remove()">X</button>
         <input type="text" class="form-control form-control-sm cn" placeholder="Name">
-        <button class="up-btn" onclick="triggerFile('${upId}')">Upload Cast Img</button>
-        <input type="file" id="${upId}" style="display:none" onchange="uploadImage(this, '${inpId}')">
-        <input type="text" id="${inpId}" class="form-control form-control-sm ci" placeholder="Img URL">
-        <input type="hidden" class="cid" value="0">`;
+        <div class="up-ui">
+            <input type="text" id="${iId}" class="form-control form-control-sm ci" placeholder="Img URL">
+            <button class="up-btn" style="height:31px; padding:0 5px;" onclick="triggerUp('${fId}')">Up</button>
+            <input type="file" id="${fId}" style="display:none" onchange="handleUp(this, '${iId}')">
+        </div><input type="hidden" class="cid" value="0">`;
     document.getElementById('e_cast_list').appendChild(d);
 }
+
 function addManGal() {
-    fileCounter++;
-    let upId = 'up_g_' + fileCounter;
-    let inpId = 'inp_g_' + fileCounter;
+    fIdx++; let fId = 'f_g_'+fIdx; let iId = 'i_g_'+fIdx;
     const d = document.createElement('div'); d.className='col-md-6 position-relative';
     d.innerHTML=`<button class="btn-remove" onclick="this.parentElement.remove()">X</button>
-        <button class="up-btn" onclick="triggerFile('${upId}')">Upload Screen</button>
-        <input type="file" id="${upId}" style="display:none" onchange="uploadImage(this, '${inpId}')">
-        <input type="text" id="${inpId}" class="form-control form-control-sm gi" placeholder="Screenshot URL">`;
+        <div class="up-ui">
+            <input type="text" id="${iId}" class="form-control form-control-sm gi" placeholder="Screenshot URL">
+            <button class="up-btn" style="height:31px; padding:0 5px;" onclick="triggerUp('${fId}')">Up</button>
+            <input type="file" id="${fId}" style="display:none" onchange="handleUp(this, '${iId}')">
+        </div>`;
     document.getElementById('e_gallery_list').appendChild(d);
 }
+
 function addSeason(name="") {
     sCount++; const sId = `s_${sCount}`; const d = document.createElement('div'); d.className='season-item'; d.id=sId;
     let sFormat = "S" + String(sCount).padStart(2, '0');
@@ -301,12 +297,12 @@ function addSeason(name="") {
         <button class="btn btn-info fw-bold" onclick="addEpisode('${sId}')">+ ADD EPISODE</button></div><div class="ep-wrap" data-count="0"></div>`;
     document.getElementById('season_container').appendChild(d);
 }
+
 function addEpisode(sId, name="", links={}) {
     const w = document.querySelector(`#${sId} .ep-wrap`);
     let c = parseInt(w.dataset.count)+1; w.dataset.count=c;
     const sFormat = document.querySelector(`#${sId} .st`).dataset.sformat;
     const eFormat = sFormat + " EP" + String(c).padStart(2, '0');
-    
     const d = document.createElement('div'); d.className='episode-item';
     d.innerHTML = `<button class="btn-remove" onclick="this.parentElement.remove()">REMOVE</button>
         <input type="text" class="form-control fw-bold et mb-2" value="${name||eFormat}">
@@ -322,6 +318,7 @@ function addEpisode(sId, name="", links={}) {
         </div>`;
     w.appendChild(d);
 }
+
 async function generateFinalHTML() {
     const castData = []; const cNs = document.querySelectorAll('.cn'); const cIs = document.querySelectorAll('.ci'); const cIDs = document.querySelectorAll('.cid');
     for(let i=0; i<cNs.length; i++){
@@ -342,6 +339,7 @@ async function generateFinalHTML() {
     const res = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
     const resJ = await res.json(); document.getElementById('html_box').innerText = resJ.html; document.getElementById('preview_area').innerHTML = resJ.html; document.getElementById('final_section').style.display='block';
 }
+
 function importCode() {
     try {
         const raw = document.getElementById('import_data').value;
@@ -367,19 +365,14 @@ function previewToggle() { const p = document.getElementById('preview_area'); p.
 def index(): return render_template_string(UI_HTML)
 
 @app.route('/api/upload', methods=['POST'])
-def upload_file():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file"}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
-    if file:
-        filename = secure_filename(file.filename)
-        # uniqueness to avoid overwrite
-        filename = f"{os.urandom(4).hex()}_{filename}"
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        file_url = url_for('static', filename='uploads/' + filename)
-        return jsonify({"url": file_url})
+def upload_api():
+    try:
+        file = request.files['file']
+        img_data = base64.b64encode(file.read()).decode('utf-8')
+        # Uploading to ImgBB (Free)
+        res = requests.post("https://api.imgbb.com/1/upload", data={"key": IMGBB_API_KEY, "image": img_data})
+        return jsonify({"url": res.json()['data']['url']})
+    except: return jsonify({"url": ""}), 500
 
 @app.route('/api/search')
 def search_api():
@@ -408,13 +401,9 @@ def generate_api():
         data = request.json
         meta_b64 = base64.b64encode(json.dumps(data).encode()).decode()
         m_year = data['date'][:4] if data['date'] else "N/A"
-        
         cast_h = "".join([f'<div class="c-item" onclick="shAc(\'{c["name"]}\',\'{c["img"]}\',\'{c["born"]}\',\'{c["place"]}\',\'{c["count"]}\',\'{c["best"]}\',`{c["bio"]}`, \'{data["title"]}\', \'{m_year}\')"><img src="{c["img"]}"><p>{c["name"]}</p></div>' for c in data['cast']])
         gal_h = "".join([f'<img src="{i}">' for i in data['gallery']])
-        
-        # Premium Download Box Styling - Updated Movie & Episode labels
         m_btns = '<div class="premium-box"><div class="btn-grid">' + "".join([f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre">Watch & Download {l["q"]}</a>' for l in data['movieLinks']]) + '</div></div>'
-        
         s_btns = '<div class="premium-box"><div class="btn-grid">' + "".join([f'<button class="btn-pre s-btn" onclick="tgS(\'s{i}\')">📂 {s["name"]}</button>' for i, s in enumerate(data['seasons'])]) + '</div>'
         for i, s in enumerate(data['seasons']):
             s_btns += f'<div id="s{i}" class="ep-box" style="display:none;"><div class="btn-grid">'
@@ -426,9 +415,7 @@ def generate_api():
                 s_btns += '</div></div>'
             s_btns += '</div>'
         s_btns += '</div>'
-
         tg_box_html = """<div class="tg-main-box"><h4>🚀 JOIN OUR TELEGRAM CHANNELS</h4><div class="tg-btn-grid"><a href="https://t.me/FlixBoxsOfficial" target="_blank">Official Channel</a><a href="http://t.me/FlixBoxs" target="_blank">Backup Channel</a><a href="https://t.me/FlixBoxsNew" target="_blank">Movie Channel</a><a href="https://t.me/+bYeiFHL2OgM3NWZl" target="_blank">Chat Group</a></div></div>"""
-
         blogger_html = f"""
 <!--BLOGGER POST START-->
 <style>
@@ -451,7 +438,6 @@ def generate_api():
     .tg-btn-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }}
     .tg-btn-grid a {{ background: #0088cc; color: #fff !important; text-decoration: none !important; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: bold; }}
 </style>
-
 <div class="p-box">
     <img src="{data['backdrop']}" class="m-tm">
     <h1 class="m-tl">{data['title']}</h1>
@@ -464,17 +450,14 @@ def generate_api():
     <div class="g-gr">{gal_h}</div>
     <div class="h-ln">OFFICIAL TRAILER</div>
     <iframe width="100%" height="350" src="https://www.youtube.com/embed/{data['trailer']}" frameborder="0" allowfullscreen style="border-radius:15px;"></iframe>
-    
     <button class="un-btn" onclick="document.getElementById('dl-zone').style.display='block';this.style.display='none'">🔓 UNLOCK DOWNLOAD LINKS</button>
     {tg_box_html}
-
     <div id="dl-zone" style="display:none;">
         <div class="h-ln">DOWNLOAD OPTIONS</div>
         {m_btns if data['type']=='movie' else s_btns}
         {tg_box_html}
     </div>
 </div>
-
 <div id="ac-modal" class="ac-m">
     <div style="text-align:center; margin-bottom:15px; padding:10px; background:#0b0f1a; border-radius:10px; border:1px solid #38bdf8">
         <strong id="ac-m-title" style="color:#38bdf8;font-size:16px"></strong> <span id="ac-m-year" style="color:#fff; opacity:0.7"></span>
@@ -488,7 +471,6 @@ def generate_api():
     <p id="ac-bio" style="font-size:13px; line-height:1.5; height:120px; overflow-y:auto; color:#cbd5e1"></p>
     <button style="background:#38bdf8;color:#000;font-weight:900;border:none;padding:12px;border-radius:10px;width:100%;cursor:pointer;" onclick="document.getElementById('ac-modal').style.display='none'">CLOSE</button>
 </div>
-
 <script>
     const ads = {AD_LINKS}; const adC = {data['ad_count']};
     function tgS(id) {{ document.querySelectorAll('.ep-box').forEach(el => {{ if(el.id !== id) el.style.display = 'none'; }}); var x = document.getElementById(id); x.style.display = x.style.display==='none'?'block':'none'; }}
