@@ -189,9 +189,7 @@ async function handleUp(input, targetId) {
 function switchSys(m) {
     document.getElementById('s1').classList.toggle('active', m==='auto');
     document.getElementById('s2').classList.toggle('active', m==='manual');
-    // সার্চ এরিয়া হাইড বা শো হবে কিন্তু এডিটর ফর্ম সব সময় দেখাবে
     document.getElementById('search_area').style.display = m==='auto' ? 'block' : 'none';
-    // ম্যানুয়াল সিলেক্ট করলেও মোড ইনসিওর করা হবে
     if(m==='manual') { toggleMode(document.getElementById('link_type').value); }
 }
 
@@ -349,7 +347,6 @@ function importCode() {
 function copyHTML() { navigator.clipboard.writeText(document.getElementById('html_box').innerText); alert("HTML Copied!"); }
 function previewToggle() { const p = document.getElementById('preview_area'); p.style.display = p.style.display==='none'?'block':'none'; }
 
-// পেজ লোড হওয়ার পর ডিফল্ট ভাবে মুভি লিঙ্ক বক্স গুলা দেখাবে
 window.onload = function() { toggleMode('movie'); };
 </script>
 </body>
@@ -359,15 +356,12 @@ window.onload = function() { toggleMode('movie'); };
 @app.route('/')
 def index(): return render_template_string(UI_HTML)
 
-# পার্সোনাল আপলোড রুট (Vercel-এ আজীবন ছবি রাখার জন্য Base64 সিস্টেম)
 @app.route('/api/upload', methods=['POST'])
 def upload_api():
     try:
         file = request.files['file']
-        # ছবিটিকে বাইনারি থেকে Base64 কোডে রূপান্তর
         encoded_string = base64.b64encode(file.read()).decode('utf-8')
         mime_type = file.mimetype
-        # এটি সরাসরি একটি ইমেজ লিঙ্কের মতো কাজ করবে যা ব্লগার পোস্টে আজীবন থাকবে
         base64_url = f"data:{mime_type};base64,{encoded_string}"
         return jsonify({"url": base64_url})
     except Exception as e:
@@ -402,19 +396,35 @@ def generate_api():
         m_year = data['date'][:4] if data['date'] else "N/A"
         cast_h = "".join([f'<div class="c-item" onclick="shAc(\'{c["name"]}\',\'{c["img"]}\',\'{c["born"]}\',\'{c["place"]}\',\'{c["count"]}\',\'{c["best"]}\',`{c["bio"]}`, \'{data["title"]}\', \'{m_year}\')"><img src="{c["img"]}"><p>{c["name"]}</p></div>' for c in data['cast']])
         gal_h = "".join([f'<img src="{i}">' for i in data['gallery']])
+        
+        # Movie Link Block
         m_btns = '<div class="premium-box"><div class="btn-grid">' + "".join([f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre">Watch & Download {l["q"]}</a>' for l in data['movieLinks']]) + '</div></div>'
-        s_btns = '<div class="premium-box"><div class="btn-grid">' + "".join([f'<button class="btn-pre s-btn" onclick="tgS(\'s{i}\')">📂 {s["name"]}</button>' for i, s in enumerate(data['seasons'])]) + '</div>'
+        
+        # Web Series Advanced UI
+        s_btns = '<div class="premium-box s-box"><h3 class="box-title">Season List</h3><div class="btn-grid">'
         for i, s in enumerate(data['seasons']):
-            s_btns += f'<div id="s{i}" class="ep-box" style="display:none;"><div class="btn-grid">'
-            for j, ep in enumerate(s['episodes']): s_btns += f'<button class="btn-pre ep-btn" onclick="tgE(\'s{i}e{j}\')">🎬 {ep["name"]}</button>'
-            s_btns += '</div>'
-            for j, ep in enumerate(s['episodes']):
-                s_btns += f'<div id="s{i}e{j}" class="q-box" style="display:none;"><div class="btn-grid">'
-                for l in ep['links']: s_btns += f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre q-btn">{ep["name"]} {l["q"]}</a>'
-                s_btns += '</div></div>'
-            s_btns += '</div>'
+            s_btns += f'<button class="btn-pre s-btn" onclick="tgS(\'s{i}\')">📂 {s["name"]}</button>'
+        s_btns += '</div></div>'
+
+        s_btns += '<div id="ep-list-container" class="premium-box ep-box" style="display:none;"><h3 class="box-title">Episode List</h3>'
+        for i, s in enumerate(data['seasons']):
+            s_btns += f'<div id="s{i}" class="ep-group" style="display:none;"><div class="btn-grid">'
+            for j, ep in enumerate(s['episodes']): 
+                s_btns += f'<button class="btn-pre ep-btn" onclick="tgE(\'s{i}e{j}\')">🎬 {ep["name"]}</button>'
+            s_btns += '</div></div>'
         s_btns += '</div>'
+
+        s_btns += '<div id="q-list-container" class="premium-box q-box" style="display:none;"><h3 class="box-title">Quality List</h3>'
+        for i, s in enumerate(data['seasons']):
+            for j, ep in enumerate(s['episodes']):
+                s_btns += f'<div id="s{i}e{j}" class="q-group" style="display:none;"><div class="btn-grid">'
+                for l in ep['links']: 
+                    s_btns += f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre q-btn">{ep["name"]} {l["q"]}</a>'
+                s_btns += '</div></div>'
+        s_btns += '</div>'
+
         tg_box_html = """<div class="tg-main-box"><h4>🚀 JOIN OUR TELEGRAM CHANNELS</h4><div class="tg-btn-grid"><a href="https://t.me/FlixBoxsOfficial" target="_blank">Official Channel</a><a href="http://t.me/FlixBoxs" target="_blank">Backup Channel</a><a href="https://t.me/FlixBoxsNew" target="_blank">Movie Channel</a><a href="https://t.me/+bYeiFHL2OgM3NWZl" target="_blank">Chat Group</a></div></div>"""
+        
         blogger_html = f"""
 <!--BLOGGER POST START-->
 <style>
@@ -428,9 +438,19 @@ def generate_api():
     .g-gr {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
     .g-gr img {{ width: 100%; border-radius: 12px; }}
     .btn-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }}
-    .btn-pre {{ display: block; background: linear-gradient(135deg, #38bdf8, #2563eb); color: #fff !important; text-align: center; padding: 15px; border-radius: 12px; text-decoration: none !important; font-weight: 800; border: none; cursor: pointer; font-size: 14px; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); transition: 0.3s; }}
+    .btn-pre {{ display: block; text-align: center; padding: 15px; border-radius: 12px; text-decoration: none !important; font-weight: 800; border: none; cursor: pointer; font-size: 14px; transition: 0.3s; color: #fff !important; }}
     .un-btn {{ display: block; background: #fbbf24; color: #000 !important; text-align: center; padding: 18px; border-radius: 15px; font-weight: 900; font-size: 20px; cursor: pointer; margin: 30px 0 40px 0; border: none; width: 100%; }}
-    .premium-box {{ background: #161e2e; border: 2px solid #38bdf8; padding: 20px; border-radius: 18px; margin-top: 10px; box-shadow: inset 0 0 10px rgba(56, 189, 248, 0.2); }}
+    
+    /* Box Styles */
+    .premium-box {{ padding: 20px; border-radius: 18px; margin-top: 20px; background: #161e2e; }}
+    .box-title {{ color: #fff; font-size: 18px; font-weight: 900; margin-bottom: 15px; text-align: center; text-transform: uppercase; }}
+    .s-box {{ border: 2px solid #38bdf8; }}
+    .s-btn {{ background: linear-gradient(135deg, #38bdf8, #2563eb); box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); }}
+    .ep-box {{ border: 2px solid #10b981; }}
+    .ep-btn {{ background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); }}
+    .q-box {{ border: 2px solid #f43f5e; }}
+    .q-btn {{ background: linear-gradient(135deg, #f43f5e, #e11d48); box-shadow: 0 4px 15px rgba(244, 63, 94, 0.4); }}
+
     .ac-m {{ position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #161e2e; border: 3px solid #38bdf8; width: 90%; max-width: 450px; padding: 25px; border-radius: 20px; z-index: 10000; display: none; color: #fff; box-shadow: 0 0 100px rgba(0,0,0,0.9); }}
     .ac-m img {{ width: 100px; height: 100px; border-radius: 50%; border: 4px solid #38bdf8; margin: 0 auto 15px; display: block; object-fit: cover; }}
     .tg-main-box {{ background: #161e2e; border: 2px solid #38bdf8; padding: 15px; border-radius: 15px; margin-top: 15px; text-align: center; }}
@@ -472,9 +492,24 @@ def generate_api():
 </div>
 <script>
     const ads = {AD_LINKS}; const adC = {data['ad_count']};
-    function tgS(id) {{ document.querySelectorAll('.ep-box').forEach(el => {{ if(el.id !== id) el.style.display = 'none'; }}); var x = document.getElementById(id); x.style.display = x.style.display==='none'?'block':'none'; }}
-    function tgE(id) {{ document.querySelectorAll('.q-box').forEach(el => {{ if(el.id !== id) el.style.display = 'none'; }}); var x = document.getElementById(id); x.style.display = x.style.display==='none'?'block':'none'; }}
+    
+    function tgS(id) {{
+        document.getElementById('ep-list-container').style.display = 'block';
+        document.getElementById('q-list-container').style.display = 'none';
+        document.querySelectorAll('.ep-group').forEach(el => el.style.display = 'none');
+        document.getElementById(id).style.display = 'block';
+        window.location.hash = 'ep-list-container';
+    }}
+
+    function tgE(id) {{
+        document.getElementById('q-list-container').style.display = 'block';
+        document.querySelectorAll('.q-group').forEach(el => el.style.display = 'none');
+        document.getElementById(id).style.display = 'block';
+        window.location.hash = 'q-list-container';
+    }}
+
     function opLk(u) {{ for(let i=0; i<adC; i++) {{ window.open(ads[Math.floor(Math.random()*ads.length)], '_blank'); }} window.location.href = u; }}
+    
     function shAc(n,i,b,p,c,w,bio, m_title, m_year) {{
         document.getElementById('ac-n').innerText = n; document.getElementById('ac-i').src = i;
         document.getElementById('ac-b').innerText = "Born: "+b; document.getElementById('ac-p').innerText = p;
