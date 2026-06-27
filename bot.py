@@ -48,7 +48,6 @@ UI_HTML = """
         .sys-btn.active { border-color: var(--accent); color: var(--accent); }
         .res-title { font-size: 14px; font-weight: bold; color: var(--accent); text-align: center; margin-top: 8px; }
 
-        /* Custom Upload UI */
         .up-ui { display: flex; gap: 5px; align-items: center; margin-bottom: 12px; }
         .up-ui input { flex: 1; margin-bottom: 0 !important; }
         .up-btn { background: #334155; color: #38bdf8; border: 1px solid #38bdf8; border-radius: 8px; padding: 0 10px; height: 45px; font-size: 11px; font-weight: bold; cursor: pointer; white-space: nowrap; }
@@ -85,7 +84,6 @@ UI_HTML = """
 
         <div id="results" class="row"></div>
 
-        <!-- এডিটর বক্সটি এখন সব সময় দৃশ্যমান থাকবে (display:block) -->
         <div id="editor_form" style="display:block;">
             <div class="section-header">1. BASIC DETAILS & MAIN THUMBNAIL</div>
             <div class="row g-3">
@@ -259,29 +257,32 @@ async function selectItem(id, type) {
     document.getElementById('e_gallery_list').innerHTML = gH;
     toggleMode(type);
 }
-function addManCast() {
+
+function addManCast(name="", img="", cid="0") {
     fIdx++; let fId = 'f_c_'+fIdx; let iId = 'i_c_'+fIdx;
     const d = document.createElement('div'); d.className='col-md-4 mb-2 p-2 border border-secondary rounded position-relative';
     d.innerHTML=`<button class="btn-remove" onclick="this.parentElement.remove()">X</button>
-        <input type="text" class="form-control form-control-sm cn" placeholder="Name">
+        <input type="text" class="form-control form-control-sm cn" placeholder="Name" value="${name}">
         <div class="up-ui">
-            <input type="text" id="${iId}" class="form-control form-control-sm ci" placeholder="Img URL">
+            <input type="text" id="${iId}" class="form-control form-control-sm ci" placeholder="Img URL" value="${img}">
             <button class="up-btn" style="height:31px; font-size:10px" onclick="triggerUp('${fId}')">Up</button>
             <input type="file" id="${fId}" style="display:none" onchange="handleUp(this, '${iId}')">
-        </div><input type="hidden" class="cid" value="0">`;
+        </div><input type="hidden" class="cid" value="${cid}">`;
     document.getElementById('e_cast_list').appendChild(d);
 }
-function addManGal() {
+
+function addManGal(img="") {
     fIdx++; let fId = 'f_g_'+fIdx; let iId = 'i_g_'+fIdx;
     const d = document.createElement('div'); d.className='col-md-6 position-relative';
     d.innerHTML=`<button class="btn-remove" onclick="this.parentElement.remove()">X</button>
         <div class="up-ui">
-            <input type="text" id="${iId}" class="form-control form-control-sm gi" placeholder="Screenshot URL">
+            <input type="text" id="${iId}" class="form-control form-control-sm gi" placeholder="Screenshot URL" value="${img}">
             <button class="up-btn" style="height:31px; font-size:10px" onclick="triggerUp('${fId}')">Up</button>
             <input type="file" id="${fId}" style="display:none" onchange="handleUp(this, '${iId}')">
         </div>`;
     document.getElementById('e_gallery_list').appendChild(d);
 }
+
 function addSeason(name="") {
     sCount++; const sId = `s_${sCount}`; const d = document.createElement('div'); d.className='season-item'; d.id=sId;
     let sFormat = "S" + String(sCount).padStart(2, '0');
@@ -310,12 +311,13 @@ function addEpisode(sId, name="", links={}) {
         </div>`;
     w.appendChild(d);
 }
+
 async function generateFinalHTML() {
     const castData = []; const cNs = document.querySelectorAll('.cn'); const cIs = document.querySelectorAll('.ci'); const cIDs = document.querySelectorAll('.cid');
     for(let i=0; i<cNs.length; i++){
         let p = { birthday:'Unknown', place_of_birth:'Unknown', biography:'Manual Cast', combined_credits:{cast:[]} };
         if(cIDs[i].value !== "0") { const res = await fetch(`/api/person?id=${cIDs[i].value}`); p = await res.json(); }
-        castData.push({ name: cNs[i].value, img: cIs[i].value, born: p.birthday||'N/A', place: p.place_of_birth||'N/A', bio: (p.biography||'No Bio').slice(0, 600).replace(/'/g, "").replace(/"/g, "") + "...", count: p.combined_credits.cast.length, best: p.combined_credits.cast.sort((a,b)=>b.vote_count-a.vote_count).slice(0,5).map(m=>m.title||m.name).join(', ') });
+        castData.push({ name: cNs[i].value, img: cIs[i].value, born: p.birthday||'N/A', place: p.place_of_birth||'N/A', bio: (p.biography||'No Bio').slice(0, 600).replace(/'/g, "").replace(/"/g, "") + "...", count: p.combined_credits.cast.length, best: p.combined_credits.cast.sort((a,b)=>b.vote_count-a.vote_count).slice(0,5).map(m=>m.title||m.name).join(', '), id: cIDs[i].value });
     }
     const data = {
         title: document.getElementById('e_title').value, backdrop: document.getElementById('e_backdrop').value,
@@ -330,6 +332,7 @@ async function generateFinalHTML() {
     const res = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
     const resJ = await res.json(); document.getElementById('html_box').innerText = resJ.html; document.getElementById('preview_area').innerHTML = resJ.html; document.getElementById('final_section').style.display='block';
 }
+
 function importCode() {
     try {
         const raw = document.getElementById('import_data').value;
@@ -340,10 +343,37 @@ function importCode() {
         document.getElementById('e_story').value=meta.story; document.getElementById('e_dir_name').value=meta.dir_name;
         document.getElementById('e_dir_img').value=meta.dir_img; document.getElementById('e_trailer').value=meta.trailer;
         document.getElementById('e_ad_count').value=meta.ad_count; document.getElementById('link_type').value=meta.type;
-        if(meta.type === 'movie') { toggleMode('movie'); meta.movieLinks.forEach(l => { const i = document.querySelector(`.mq[data-q="${l.q}"]`); if(i) i.value = l.url; }); }
-        else { toggleMode('tv'); document.getElementById('season_container').innerHTML = ''; sCount = 0; meta.seasons.forEach(s => { addSeason(s.name); const sId=`s_${sCount}`; s.episodes.forEach(e => { const lObj={}; e.links.forEach(ln=>lObj[ln.q]=ln.url); addEpisode(sId, e.name, lObj); }); }); }
-    } catch(e) { alert("Invalid Code!"); }
+        
+        // Re-import Cast
+        document.getElementById('e_cast_list').innerHTML = '';
+        meta.cast.forEach(c => addManCast(c.name, c.img, c.id || "0"));
+
+        // Re-import Gallery
+        document.getElementById('e_gallery_list').innerHTML = '';
+        meta.gallery.forEach(img => addManGal(img));
+
+        if(meta.type === 'movie') { 
+            toggleMode('movie'); 
+            document.querySelectorAll('.mq').forEach(i => i.value = ''); 
+            meta.movieLinks.forEach(l => { const i = document.querySelector(`.mq[data-q="${l.q}"]`); if(i) i.value = l.url; }); 
+        } else { 
+            toggleMode('tv'); 
+            document.getElementById('season_container').innerHTML = ''; 
+            sCount = 0; 
+            meta.seasons.forEach(s => { 
+                addSeason(s.name); 
+                const sId=`s_${sCount}`; 
+                s.episodes.forEach(e => { 
+                    const lObj={}; 
+                    e.links.forEach(ln=>lObj[ln.q]=ln.url); 
+                    addEpisode(sId, e.name, lObj); 
+                }); 
+            }); 
+        }
+        alert("Post Data Re-imported Successfully!");
+    } catch(e) { alert("Invalid Code! Make sure you copied the whole code."); console.log(e); }
 }
+
 function copyHTML() { navigator.clipboard.writeText(document.getElementById('html_box').innerText); alert("HTML Copied!"); }
 function previewToggle() { const p = document.getElementById('preview_area'); p.style.display = p.style.display==='none'?'block':'none'; }
 
@@ -397,10 +427,8 @@ def generate_api():
         cast_h = "".join([f'<div class="c-item" onclick="shAc(\'{c["name"]}\',\'{c["img"]}\',\'{c["born"]}\',\'{c["place"]}\',\'{c["count"]}\',\'{c["best"]}\',`{c["bio"]}`, \'{data["title"]}\', \'{m_year}\')"><img src="{c["img"]}"><p>{c["name"]}</p></div>' for c in data['cast']])
         gal_h = "".join([f'<img src="{i}">' for i in data['gallery']])
         
-        # Movie Link Block
-        m_btns = '<div class="premium-box"><div class="btn-grid">' + "".join([f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre">Watch & Download {l["q"]}</a>' for l in data['movieLinks']]) + '</div></div>'
+        m_btns = '<div class="premium-box"><h3 class="box-title">Quality List</h3><div class="btn-grid">' + "".join([f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre">Watch & Download {l["q"]}</a>' for l in data['movieLinks']]) + '</div></div>'
         
-        # Web Series Advanced UI
         s_btns = '<div class="premium-box s-box"><h3 class="box-title">Season List</h3><div class="btn-grid">'
         for i, s in enumerate(data['seasons']):
             s_btns += f'<button class="btn-pre s-btn" onclick="tgS(\'s{i}\')">📂 {s["name"]}</button>'
@@ -410,11 +438,11 @@ def generate_api():
         for i, s in enumerate(data['seasons']):
             s_btns += f'<div id="s{i}" class="ep-group" style="display:none;"><div class="btn-grid">'
             for j, ep in enumerate(s['episodes']): 
-                s_btns += f'<button class="btn-pre ep-btn" onclick="tgE(\'s{i}e{j}\')">🎬 {ep["name"]}</button>'
+                s_btns += f'<button class="btn-pre ep-btn" onclick="tgE(\'s{i}e{j}\', \'{ep["name"]}\')">🎬 {ep["name"]}</button>'
             s_btns += '</div></div>'
         s_btns += '</div>'
 
-        s_btns += '<div id="q-list-container" class="premium-box q-box" style="display:none;"><h3 class="box-title">Quality List</h3>'
+        s_btns += '<div id="q-list-container" class="premium-box q-box" style="display:none;"><h3 id="q-title" class="box-title">Quality List</h3>'
         for i, s in enumerate(data['seasons']):
             for j, ep in enumerate(s['episodes']):
                 s_btns += f'<div id="s{i}e{j}" class="q-group" style="display:none;"><div class="btn-grid">'
@@ -440,8 +468,6 @@ def generate_api():
     .btn-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }}
     .btn-pre {{ display: block; text-align: center; padding: 15px; border-radius: 12px; text-decoration: none !important; font-weight: 800; border: none; cursor: pointer; font-size: 14px; transition: 0.3s; color: #fff !important; }}
     .un-btn {{ display: block; background: #fbbf24; color: #000 !important; text-align: center; padding: 18px; border-radius: 15px; font-weight: 900; font-size: 20px; cursor: pointer; margin: 30px 0 40px 0; border: none; width: 100%; }}
-    
-    /* Box Styles */
     .premium-box {{ padding: 20px; border-radius: 18px; margin-top: 20px; background: #161e2e; }}
     .box-title {{ color: #fff; font-size: 18px; font-weight: 900; margin-bottom: 15px; text-align: center; text-transform: uppercase; }}
     .s-box {{ border: 2px solid #38bdf8; }}
@@ -450,7 +476,6 @@ def generate_api():
     .ep-btn {{ background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); }}
     .q-box {{ border: 2px solid #f43f5e; }}
     .q-btn {{ background: linear-gradient(135deg, #f43f5e, #e11d48); box-shadow: 0 4px 15px rgba(244, 63, 94, 0.4); }}
-
     .ac-m {{ position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #161e2e; border: 3px solid #38bdf8; width: 90%; max-width: 450px; padding: 25px; border-radius: 20px; z-index: 10000; display: none; color: #fff; box-shadow: 0 0 100px rgba(0,0,0,0.9); }}
     .ac-m img {{ width: 100px; height: 100px; border-radius: 50%; border: 4px solid #38bdf8; margin: 0 auto 15px; display: block; object-fit: cover; }}
     .tg-main-box {{ background: #161e2e; border: 2px solid #38bdf8; padding: 15px; border-radius: 15px; margin-top: 15px; text-align: center; }}
@@ -492,7 +517,6 @@ def generate_api():
 </div>
 <script>
     const ads = {AD_LINKS}; const adC = {data['ad_count']};
-    
     function tgS(id) {{
         document.getElementById('ep-list-container').style.display = 'block';
         document.getElementById('q-list-container').style.display = 'none';
@@ -500,16 +524,14 @@ def generate_api():
         document.getElementById(id).style.display = 'block';
         window.location.hash = 'ep-list-container';
     }}
-
-    function tgE(id) {{
+    function tgE(id, name) {{
         document.getElementById('q-list-container').style.display = 'block';
+        document.getElementById('q-title').innerText = "Quality for: " + name;
         document.querySelectorAll('.q-group').forEach(el => el.style.display = 'none');
         document.getElementById(id).style.display = 'block';
         window.location.hash = 'q-list-container';
     }}
-
     function opLk(u) {{ for(let i=0; i<adC; i++) {{ window.open(ads[Math.floor(Math.random()*ads.length)], '_blank'); }} window.location.href = u; }}
-    
     function shAc(n,i,b,p,c,w,bio, m_title, m_year) {{
         document.getElementById('ac-n').innerText = n; document.getElementById('ac-i').src = i;
         document.getElementById('ac-b').innerText = "Born: "+b; document.getElementById('ac-p').innerText = p;
