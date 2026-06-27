@@ -1,24 +1,13 @@
 import os
 import json
 import base64
-from flask import Flask, render_template_string, request, jsonify, url_for, send_from_directory
+from flask import Flask, render_template_string, request, jsonify
 import requests
 import re
-from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-# --- পার্সোনাল সার্ভার কনফিগারেশন ---
-# ইমেজগুলো 'uploads' ফোল্ডারে আজীবন জমা থাকবে
-UPLOAD_FOLDER = 'uploads'
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-# সর্বোচ্চ ১৬ মেগাবাইট পর্যন্ত ইমেজ আপলোড করা যাবে
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 
-
-# TMDB API Configuration
+# configuration
 TMDB_API_KEY = "7dc544d9253bccc3cfecc1c677f69819"
 
 AD_LINKS = [
@@ -58,11 +47,11 @@ UI_HTML = """
         .sys-btn { flex: 1; padding: 15px; border: 2px solid #334155; background: #1e293b; color: white; border-radius: 10px; font-weight: bold; cursor: pointer; }
         .sys-btn.active { border-color: var(--accent); color: var(--accent); }
         .res-title { font-size: 14px; font-weight: bold; color: var(--accent); text-align: center; margin-top: 8px; }
-        
-        /* Personal Upload UI */
+
+        /* Custom Upload UI */
         .up-ui { display: flex; gap: 5px; align-items: center; margin-bottom: 12px; }
         .up-ui input { flex: 1; margin-bottom: 0 !important; }
-        .up-btn { background: #334155; color: #38bdf8; border: 1px solid #38bdf8; border-radius: 8px; padding: 0 15px; height: 50px; font-size: 12px; font-weight: bold; cursor: pointer; white-space: nowrap; }
+        .up-btn { background: #334155; color: #38bdf8; border: 1px solid #38bdf8; border-radius: 8px; padding: 0 10px; height: 45px; font-size: 11px; font-weight: bold; cursor: pointer; white-space: nowrap; }
     </style>
 </head>
 <body>
@@ -188,14 +177,12 @@ async function handleUp(input, targetId) {
     const formData = new FormData();
     formData.append('file', input.files[0]);
     const target = document.getElementById(targetId);
-    const oldVal = target.value;
     target.value = "Saving to Server...";
     try {
         const res = await fetch('/api/upload', { method:'POST', body:formData });
         const data = await res.json();
-        // আপনার নিজের সার্ভারের লিঙ্ক জেনারেট হবে
-        target.value = window.location.origin + data.url;
-    } catch(e) { target.value = oldVal; alert("Server Error or Storage Full!"); }
+        target.value = data.url;
+    } catch(e) { alert("Server Error!"); }
 }
 
 function switchSys(m) {
@@ -204,12 +191,10 @@ function switchSys(m) {
     document.getElementById('search_area').style.display = m==='auto' ? 'block' : 'none';
     if(m==='manual') { document.getElementById('editor_form').style.display='block'; toggleMode('movie'); }
 }
-
 function toggleMode(t) {
     document.getElementById('movie_ui').style.display = t==='movie' ? 'block' : 'none';
     document.getElementById('series_ui').style.display = t==='tv' ? 'block' : 'none';
 }
-
 async function searchTMDB() {
     const q = document.getElementById('query').value;
     const im = document.getElementById('imdb_link').value;
@@ -228,7 +213,6 @@ async function searchTMDB() {
     });
     document.getElementById('results').innerHTML = h;
 }
-
 async function selectItem(id, type) {
     const res = await fetch(`/api/details?id=${id}&type=${type}`);
     const raw = await res.json();
@@ -272,7 +256,6 @@ async function selectItem(id, type) {
     document.getElementById('e_gallery_list').innerHTML = gH;
     toggleMode(type);
 }
-
 function addManCast() {
     fIdx++; let fId = 'f_c_'+fIdx; let iId = 'i_c_'+fIdx;
     const d = document.createElement('div'); d.className='col-md-4 mb-2 p-2 border border-secondary rounded position-relative';
@@ -285,7 +268,6 @@ function addManCast() {
         </div><input type="hidden" class="cid" value="0">`;
     document.getElementById('e_cast_list').appendChild(d);
 }
-
 function addManGal() {
     fIdx++; let fId = 'f_g_'+fIdx; let iId = 'i_g_'+fIdx;
     const d = document.createElement('div'); d.className='col-md-6 position-relative';
@@ -297,7 +279,6 @@ function addManGal() {
         </div>`;
     document.getElementById('e_gallery_list').appendChild(d);
 }
-
 function addSeason(name="") {
     sCount++; const sId = `s_${sCount}`; const d = document.createElement('div'); d.className='season-item'; d.id=sId;
     let sFormat = "S" + String(sCount).padStart(2, '0');
@@ -306,7 +287,6 @@ function addSeason(name="") {
         <button class="btn btn-info fw-bold" onclick="addEpisode('${sId}')">+ ADD EPISODE</button></div><div class="ep-wrap" data-count="0"></div>`;
     document.getElementById('season_container').appendChild(d);
 }
-
 function addEpisode(sId, name="", links={}) {
     const w = document.querySelector(`#${sId} .ep-wrap`);
     let c = parseInt(w.dataset.count)+1; w.dataset.count=c;
@@ -327,7 +307,6 @@ function addEpisode(sId, name="", links={}) {
         </div>`;
     w.appendChild(d);
 }
-
 async function generateFinalHTML() {
     const castData = []; const cNs = document.querySelectorAll('.cn'); const cIs = document.querySelectorAll('.ci'); const cIDs = document.querySelectorAll('.cid');
     for(let i=0; i<cNs.length; i++){
@@ -348,7 +327,6 @@ async function generateFinalHTML() {
     const res = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
     const resJ = await res.json(); document.getElementById('html_box').innerText = resJ.html; document.getElementById('preview_area').innerHTML = resJ.html; document.getElementById('final_section').style.display='block';
 }
-
 function importCode() {
     try {
         const raw = document.getElementById('import_data').value;
@@ -373,29 +351,19 @@ function previewToggle() { const p = document.getElementById('preview_area'); p.
 @app.route('/')
 def index(): return render_template_string(UI_HTML)
 
-# --- পার্সোনাল ইমেজ সার্ভার রুটস ---
-
-# ইমেজ আপলোড করার এন্ডপয়েন্ট
+# পার্সোনাল আপলোড রুট (Vercel-এ আজীবন ছবি রাখার জন্য Base64 সিস্টেম)
 @app.route('/api/upload', methods=['POST'])
-def upload_file():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file"}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No file name"}), 400
-    if file:
-        filename = secure_filename(file.filename)
-        # ফাইলের নামের সাথে ইউনিক আইডি যুক্ত করা হচ্ছে যেন ওভাররাইট না হয়
-        unique_name = f"{os.urandom(4).hex()}_{filename}"
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_name))
-        return jsonify({"url": f"/uploads/{unique_name}"})
-
-# আপলোড করা ইমেজ দেখানোর জন্য রুট (পার্সোনাল ইমেজ হোস্ট)
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
-# --- TMDB API রুটস ---
+def upload_api():
+    try:
+        file = request.files['file']
+        # ছবিটিকে বাইনারি থেকে Base64 কোডে রূপান্তর
+        encoded_string = base64.b64encode(file.read()).decode('utf-8')
+        mime_type = file.mimetype
+        # এটি সরাসরি একটি ইমেজ লিঙ্কের মতো কাজ করবে যা ব্লগার পোস্টে আজীবন থাকবে
+        base64_url = f"data:{mime_type};base64,{encoded_string}"
+        return jsonify({"url": base64_url})
+    except Exception as e:
+        return jsonify({"url": "", "error": str(e)}), 500
 
 @app.route('/api/search')
 def search_api():
@@ -417,8 +385,6 @@ def details_api():
 def person_api():
     id = request.args.get('id')
     return jsonify(requests.get(f"https://api.themoviedb.org/3/person/{id}?api_key={TMDB_API_KEY}&append_to_response=combined_credits").json())
-
-# --- জেনারেটর কোড ---
 
 @app.route('/api/generate', methods=['POST'])
 def generate_api():
