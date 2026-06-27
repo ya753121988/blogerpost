@@ -85,7 +85,8 @@ UI_HTML = """
 
         <div id="results" class="row"></div>
 
-        <div id="editor_form" style="display:none;">
+        <!-- এডিটর বক্সটি এখন সব সময় দৃশ্যমান থাকবে (display:block) -->
+        <div id="editor_form" style="display:block;">
             <div class="section-header">1. BASIC DETAILS & MAIN THUMBNAIL</div>
             <div class="row g-3">
                 <div class="col-md-6"><label>Title</label><input type="text" id="e_title" class="form-control"></div>
@@ -188,13 +189,17 @@ async function handleUp(input, targetId) {
 function switchSys(m) {
     document.getElementById('s1').classList.toggle('active', m==='auto');
     document.getElementById('s2').classList.toggle('active', m==='manual');
+    // সার্চ এরিয়া হাইড বা শো হবে কিন্তু এডিটর ফর্ম সব সময় দেখাবে
     document.getElementById('search_area').style.display = m==='auto' ? 'block' : 'none';
-    if(m==='manual') { document.getElementById('editor_form').style.display='block'; toggleMode('movie'); }
+    // ম্যানুয়াল সিলেক্ট করলেও মোড ইনসিওর করা হবে
+    if(m==='manual') { toggleMode(document.getElementById('link_type').value); }
 }
+
 function toggleMode(t) {
     document.getElementById('movie_ui').style.display = t==='movie' ? 'block' : 'none';
     document.getElementById('series_ui').style.display = t==='tv' ? 'block' : 'none';
 }
+
 async function searchTMDB() {
     const q = document.getElementById('query').value;
     const im = document.getElementById('imdb_link').value;
@@ -343,6 +348,9 @@ function importCode() {
 }
 function copyHTML() { navigator.clipboard.writeText(document.getElementById('html_box').innerText); alert("HTML Copied!"); }
 function previewToggle() { const p = document.getElementById('preview_area'); p.style.display = p.style.display==='none'?'block':'none'; }
+
+// পেজ লোড হওয়ার পর ডিফল্ট ভাবে মুভি লিঙ্ক বক্স গুলা দেখাবে
+window.onload = function() { toggleMode('movie'); };
 </script>
 </body>
 </html>
