@@ -472,7 +472,7 @@ def generate_api():
                 s_btns += '</div></div>'
         s_btns += '</div>'
 
-        tg_box_html = """<div class="tg-main-box"><h4>🚀 JOIN OUR TELEGRAM CHANNELS</h4><div class="tg-btn-grid"><a href="https://t.me/FlixBoxs" target="_blank">Developer Movie Channel</a><a href="http://t.me/movieflixbox" target="_blank">Backup Channel</a><a href="https://t.me/movieflixboxsvide" target="_blank">Movie Channel</a><a href="https://t.me/MovieFlixboxChat" target="_blank">Chat Group</a></div></div>"""
+        tg_box_html = """<div class="tg-main-box"><h4>🚀 JOIN OUR TELEGRAM CHANNELS</h4><div class="tg-btn-grid"><a href="https://t.me/FlixBoxsOfficial" target="_blank">Official Channel</a><a href="http://t.me/FlixBoxs" target="_blank">Backup Channel</a><a href="https://t.me/FlixBoxsNew" target="_blank">Movie Channel</a><a href="https://t.me/+bYeiFHL2OgM3NWZl" target="_blank">Chat Group</a></div></div>"""
         
         blogger_html = f"""
 <!--BLOGGER POST START-->
