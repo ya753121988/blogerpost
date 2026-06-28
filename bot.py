@@ -441,12 +441,12 @@ def telegram_webhook():
                     [{"text": f"🆔 Username: {user_name}", "callback_data": "none"}],
                     [{"text": f"🔢 ID: {user_id}", "callback_data": "none"}],
                     [
-                        {"text": "🍿 Main Channel", "url": "https://t.me/flixBoxsbd"},
-                        {"text": "🍿 Movie Channel", "url": "https://t.me/FlixBoxs"}
+                        {"text": "🍿 Main Channel", "url": "https://t.me/flixBoxs"},
+                        {"text": "🍿 Movie Channel", "url": "https://t.me/FlixBoxsbd"}
                     ],
                     [
-                        {"text": "🍿 Movie Group", "url": "https://t.me/movieflixboxchat"},
-                        {"text": "🌊 Backup Channel", "url": "https://t.me/FlixBoxsAdminBot"}
+                        {"text": "🍿 Movie Group", "url": "https://t.me/+bYeiFHL2OgM3NWZl"},
+                        {"text": "🌊 Backup Channel", "url": "https://t.me/FlixBoxsOfficial"}
                     ],
                     [{"text": "❓ About Us", "url": f"{SITE_URL}/p/about.html"}]
                 ]
@@ -535,12 +535,12 @@ def notify_api():
                 [{"text": "🌐 Visit Website", "url": SITE_URL}],
                 [{"text": "❓ How to Download", "url": "https://t.me/flixBoxsbd/13"}],
                 [
-                    {"text": "🍿 Main Channel", "url": "https://t.me/flixBoxsbd"},
-                        {"text": "🍿 Movie Channel", "url": "https://t.me/FlixBoxs"}
+                    {"text": "🍿 Main Channel", "url": "https://t.me/flixBoxs"},
+                        {"text": "🍿 Movie Channel", "url": "https://t.me/FlixBoxsbd"}
                     ],
                     [
-                        {"text": "🍿 Movie Group", "url": "https://t.me/movieflixboxchat"},
-                        {"text": "🌊 Backup Channel", "url": "https://t.me/FlixBoxsAdminBot"}
+                        {"text": "🍿 Movie Group", "url": "https://t.me/+bYeiFHL2OgM3NWZl"},
+                        {"text": "🌊 Backup Channel", "url": "https://t.me/FlixBoxsOfficial"}
                     ],
             ]
         }
