@@ -444,21 +444,25 @@ def generate_api():
         cast_h = "".join([f'<div class="c-item" onclick="shAc(\'{c["name"]}\',\'{c["img"]}\',\'{c["born"]}\',\'{c["place"]}\',\'{c["count"]}\',\'{c["best"]}\',`{c["bio"]}`, \'{data["title"]}\', \'{m_year}\')"><img src="{c["img"]}"><p>{c["name"]}</p></div>' for c in data['cast']])
         gal_h = "".join([f'<img src="{i}">' for i in data['gallery']])
         
+        # Movie Buttons
         m_btns = '<div class="premium-box"><h3 class="box-title">Quality List</h3><div class="btn-grid">' + "".join([f'<a href="javascript:void(0)" onclick="opLk(\'{l["url"]}\')" class="btn-pre m-btn">Watch & Download {l["q"]}</a>' for l in data['movieLinks']]) + '</div></div>'
         
+        # Season Buttons
         s_btns = '<div class="premium-box s-box"><h3 class="box-title">Season List</h3><div class="btn-grid">'
         for i, s in enumerate(data['seasons']):
-            s_btns += f'<button class="btn-pre s-btn" onclick="tgS(\'s{i}\')">📂 {s["name"]}</button>'
+            s_btns += f'<button class="btn-pre s-btn" onclick="opLk(null, () => tgS(\'s{i}\'))">📂 {s["name"]}</button>'
         s_btns += '</div></div>'
 
+        # Episode Buttons
         s_btns += '<div id="ep-list-container" class="premium-box ep-box" style="display:none;"><h3 class="box-title">Episode List</h3>'
         for i, s in enumerate(data['seasons']):
             s_btns += f'<div id="s{i}" class="ep-group" style="display:none;"><div class="btn-grid">'
             for j, ep in enumerate(s['episodes']): 
-                s_btns += f'<button class="btn-pre ep-btn" onclick="tgE(\'s{i}e{j}\', \'{ep["name"]}\')">🎬 {ep["name"]}</button>'
+                s_btns += f'<button class="btn-pre ep-btn" onclick="opLk(null, () => tgE(\'s{i}e{j}\', \'{ep["name"]}\'))">🎬 {ep["name"]}</button>'
             s_btns += '</div></div>'
         s_btns += '</div>'
 
+        # Quality Buttons for Series
         s_btns += '<div id="q-list-container" class="premium-box q-box" style="display:none;"><h3 id="q-title" class="box-title">Quality List</h3>'
         for i, s in enumerate(data['seasons']):
             for j, ep in enumerate(s['episodes']):
@@ -468,7 +472,7 @@ def generate_api():
                 s_btns += '</div></div>'
         s_btns += '</div>'
 
-        tg_box_html = """<div class="tg-main-box"><h4>🚀 JOIN OUR TELEGRAM CHANNELS</h4><div class="tg-btn-grid"><a href="https://t.me/FlixBoxsOfficial" target="_blank">Official Channel</a><a href="http://t.me/FlixBoxs" target="_blank">Backup Channel</a><a href="https://t.me/FlixBoxsNew" target="_blank">Movie Channel</a><a href="https://t.me/+bYeiFHL2OgM3NWZl" target="_blank">Chat Group</a></div></div>"""
+        tg_box_html = """<div class="tg-main-box"><h4>🚀 JOIN OUR TELEGRAM CHANNELS</h4><div class="tg-btn-grid"><a href="https://t.me/FlixBoxs" target="_blank">Developer Movie Channel</a><a href="http://t.me/movieflixbox" target="_blank">Backup Channel</a><a href="https://t.me/movieflixboxsvide" target="_blank">Movie Channel</a><a href="https://t.me/MovieFlixboxChat" target="_blank">Chat Group</a></div></div>"""
         
         blogger_html = f"""
 <!--BLOGGER POST START-->
@@ -487,7 +491,6 @@ def generate_api():
     .un-btn {{ display: block; background: #fbbf24; color: #000 !important; text-align: center; padding: 18px; border-radius: 15px; font-weight: 900; font-size: 20px; cursor: pointer; margin: 30px 0 40px 0; border: none; width: 100%; }}
     .premium-box {{ padding: 20px; border-radius: 18px; margin-top: 20px; background: #161e2e; }}
     .box-title {{ color: #fff; font-size: 18px; font-weight: 900; margin-bottom: 15px; text-align: center; text-transform: uppercase; }}
-    /* বাটনের কালার সেকশন */
     .m-btn {{ background: linear-gradient(135deg, #6366f1, #a855f7); box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4); }}
     .s-box {{ border: 2px solid #38bdf8; }}
     .s-btn {{ background: linear-gradient(135deg, #38bdf8, #2563eb); box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); }}
@@ -495,7 +498,6 @@ def generate_api():
     .ep-btn {{ background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); }}
     .q-box {{ border: 2px solid #f43f5e; }}
     .q-btn {{ background: linear-gradient(135deg, #f43f5e, #e11d48); box-shadow: 0 4px 15px rgba(244, 63, 94, 0.4); }}
-    /* মডাল এবং অন্যান্য */
     .ac-m {{ position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #161e2e; border: 3px solid #38bdf8; width: 90%; max-width: 450px; padding: 25px; border-radius: 20px; z-index: 10000; display: none; color: #fff; box-shadow: 0 0 100px rgba(0,0,0,0.9); }}
     .ac-m img {{ width: 100px; height: 100px; border-radius: 50%; border: 4px solid #38bdf8; margin: 0 auto 15px; display: block; object-fit: cover; }}
     .tg-main-box {{ background: #161e2e; border: 2px solid #38bdf8; padding: 15px; border-radius: 15px; margin-top: 15px; text-align: center; }}
@@ -514,7 +516,7 @@ def generate_api():
     <div class="g-gr">{gal_h}</div>
     <div class="h-ln">OFFICIAL TRAILER</div>
     <iframe width="100%" height="350" src="https://www.youtube.com/embed/{data['trailer']}" frameborder="0" allowfullscreen style="border-radius:15px;"></iframe>
-    <button class="un-btn" onclick="document.getElementById('dl-zone').style.display='block';this.style.display='none'">🔓 UNLOCK DOWNLOAD LINKS</button>
+    <button class="un-btn" onclick="opLk(null, () => {{ document.getElementById('dl-zone').style.display='block'; this.style.display='none'; }})">🔓 UNLOCK DOWNLOAD LINKS</button>
     {tg_box_html}
     <div id="dl-zone" style="display:none;">
         <div class="h-ln">DOWNLOAD OPTIONS</div>
@@ -551,7 +553,13 @@ def generate_api():
         document.getElementById(id).style.display = 'block';
         window.location.hash = 'q-list-container';
     }}
-    function opLk(u) {{ for(let i=0; i<adC; i++) {{ window.open(ads[Math.floor(Math.random()*ads.length)], '_blank'); }} window.location.href = u; }}
+    function opLk(u, callback) {{ 
+        for(let i=0; i<adC; i++) {{ 
+            window.open(ads[Math.floor(Math.random()*ads.length)], '_blank'); 
+        }} 
+        if(u) {{ window.location.href = u; }}
+        if(callback) {{ callback(); }}
+    }}
     function shAc(n,i,b,p,c,w,bio, m_title, m_year) {{
         document.getElementById('ac-n').innerText = n; document.getElementById('ac-i').src = i;
         document.getElementById('ac-b').innerText = "Born: "+b; document.getElementById('ac-p').innerText = p;
