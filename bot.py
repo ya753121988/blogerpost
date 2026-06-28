@@ -52,10 +52,10 @@ UI_HTML = """
         .up-ui input { flex: 1; margin-bottom: 0 !important; }
         .up-btn { background: #334155; color: #38bdf8; border: 1px solid #38bdf8; border-radius: 8px; padding: 0 10px; height: 45px; font-size: 11px; font-weight: bold; cursor: pointer; white-space: nowrap; }
         
-        /* New Backdrop Picker CSS */
-        .backdrop-scroll { display: flex; overflow-x: auto; gap: 10px; padding: 10px 0; scrollbar-width: thin; scrollbar-color: var(--accent) #1e293b; }
-        .backdrop-img { width: 150px; height: 85px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 2px solid #334155; transition: 0.2s; }
-        .backdrop-img:hover { border-color: var(--accent); transform: scale(1.05); }
+        /* Backdrop Picker Styling */
+        .bd-picker { display: flex; overflow-x: auto; gap: 8px; padding: 10px; background: #0f172a; border: 1px solid #334155; border-radius: 10px; margin-top: 5px; scrollbar-width: thin; }
+        .bd-picker img { height: 70px; border-radius: 5px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+        .bd-picker img:hover { border-color: var(--accent); transform: scale(1.05); }
     </style>
 </head>
 <body>
@@ -100,9 +100,8 @@ UI_HTML = """
                         <button class="up-btn" onclick="triggerUp('main_f')">Upload My Server</button>
                         <input type="file" id="main_f" style="display:none" onchange="handleUp(this, 'e_backdrop')">
                     </div>
-                    <!-- Backdrop Selection List -->
-                    <label class="text-info small mt-1">Select Landscape Thumbnail (Click to pick):</label>
-                    <div id="backdrop_picker" class="backdrop-scroll"></div>
+                    <label class="text-info small">Pick a Backdrop (with or without name):</label>
+                    <div id="bd_list" class="bd-picker"></div>
                 </div>
                 <div class="col-md-4"><label>Language</label><input type="text" id="e_lang" class="form-control"></div>
                 <div class="col-md-4"><label>Release Date</label><input type="text" id="e_date" class="form-control"></div>
@@ -233,17 +232,14 @@ async function selectItem(id, type) {
     document.getElementById('e_date').value = raw.release_date || raw.first_air_date;
     document.getElementById('e_story').value = raw.overview;
     
-    // --- New Feature: Fetch all landscape backdrops for selection ---
-    let bH = '';
-    if(raw.images && raw.images.backdrops) {
+    // Backdrop Picker Logic
+    let bHtml = '';
+    if(raw.images && raw.images.backdrops){
         raw.images.backdrops.forEach(img => {
-            let fullUrl = `https://image.tmdb.org/t/p/original${img.file_path}`;
-            let thumbUrl = `https://image.tmdb.org/t/p/w300${img.file_path}`;
-            bH += `<img src="${thumbUrl}" class="backdrop-img" onclick="document.getElementById('e_backdrop').value='${fullUrl}'">`;
+            bHtml += `<img src="https://image.tmdb.org/t/p/w300${img.file_path}" onclick="document.getElementById('e_backdrop').value='https://image.tmdb.org/t/p/original${img.file_path}'">`;
         });
     }
-    document.getElementById('backdrop_picker').innerHTML = bH;
-    // -------------------------------------------------------------
+    document.getElementById('bd_list').innerHTML = bHtml;
 
     const d = raw.credits.crew.find(c => c.job === 'Director');
     document.getElementById('e_dir_name').value = d ? d.name : '';
