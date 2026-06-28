@@ -5,6 +5,12 @@ from flask import Flask, render_template_string, request, jsonify
 import requests
 import re
 
+# --- টেলিগ্রাম এবং সাইট ভেরিএবল ---
+BOT_TOKEN = "8881753463:AAHWXeS-0Jz3-sU7PDZMmuejOw9IkXHaHh0"
+CHANNEL_ID = "-1004330788351" # যেমন: @mychannel বা -100123456789
+SITE_URL = "https://flixboxsmovies.blogspot.com/"
+# ------------------------------
+
 app = Flask(__name__)
 
 # configuration
@@ -18,6 +24,7 @@ AD_LINKS = [
     "https://www.effectivecpmnetwork.com/wsck7gj1?key=2f49c16a80560c9b810503b65da32363",
     "https://www.effectivecpmnetwork.com/iqs1w6v06c?key=19b65cbb2964d6f0a3c934b5ee855f18"
 ]
+
 
 UI_HTML = """
 <!DOCTYPE html>
@@ -164,6 +171,7 @@ UI_HTML = """
                 <div class="d-flex gap-3 mb-3">
                     <button class="btn btn-success flex-grow-1 fw-bold py-3" onclick="copyHTML()">COPY HTML CODE</button>
                     <button class="btn btn-warning flex-grow-1 fw-bold py-3" onclick="previewToggle()">PREVIEW POST</button>
+                    <button class="btn btn-info flex-grow-1 fw-bold py-3" onclick="sendToTelegram()">📢 NOTIFICATION</button>
                 </div>
                 <div id="preview_area" class="preview-box"></div>
                 <div id="html_box" class="code-box"></div>
@@ -175,6 +183,7 @@ UI_HTML = """
 <script>
 let sCount = 0;
 let fIdx = 0;
+let lastGeneratedData = null;
 
 function triggerUp(id) { document.getElementById(id).click(); }
 
@@ -346,8 +355,17 @@ async function generateFinalHTML() {
         movieLinks: Array.from(document.querySelectorAll('.mq')).filter(i=>i.value).map(i=>({q:i.dataset.q, url:i.value})),
         seasons: Array.from(document.querySelectorAll('.season-item')).map(s=>({ name: s.querySelector('.st').value, episodes: Array.from(s.querySelectorAll('.episode-item')).map(e=>({ name: e.querySelector('.et').value, links: Array.from(e.querySelectorAll('.eq')).filter(i=>i.value).map(i=>({q:i.dataset.q, url:i.value})) })) }))
     };
+    lastGeneratedData = data;
     const res = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
     const resJ = await res.json(); document.getElementById('html_box').innerText = resJ.html; document.getElementById('preview_area').innerHTML = resJ.html; document.getElementById('final_section').style.display='block';
+}
+
+async function sendToTelegram() {
+    if(!lastGeneratedData) return alert("Generate code first!");
+    const res = await fetch('/api/notify', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(lastGeneratedData) });
+    const resJ = await res.json();
+    if(resJ.status === 'success') alert("Telegram Notification Sent!");
+    else alert("Telegram Error: " + resJ.error);
 }
 
 function importCode() {
@@ -403,6 +421,44 @@ window.onload = function() { toggleMode('movie'); };
 @app.route('/')
 def index(): return render_template_string(UI_HTML)
 
+# --- নতুন যোগ করা বোট স্টার্ট ফাংশন ---
+@app.route('/telegram_webhook', methods=['POST'])
+def telegram_webhook():
+    update = request.json
+    if "message" in update and "text" in update["message"]:
+        msg = update["message"]
+        chat_id = msg["chat"]["id"]
+        text = msg["text"]
+        
+        if text.startswith("/start"):
+            user_full_name = f"{msg['from'].get('first_name', '')} {msg['from'].get('last_name', '')}".strip()
+            user_name = f"@{msg['from'].get('username', 'N/A')}"
+            user_id = msg['from'].get('id', 'N/A')
+            
+            keyboard = {
+                "inline_keyboard": [
+                    [{"text": f"👤 Name: {user_full_name}", "callback_data": "none"}],
+                    [{"text": f"🆔 Username: {user_name}", "callback_data": "none"}],
+                    [{"text": f"🔢 ID: {user_id}", "callback_data": "none"}],
+                    [
+                        {"text": "🍿 Main Channel", "url": "https://t.me/flixBoxsbd"},
+                        {"text": "🍿 Movie Channel", "url": "https://t.me/FlixBoxs"}
+                    ],
+                    [
+                        {"text": "🍿 Movie Group", "url": "https://t.me/movieflixboxchat"},
+                        {"text": "🌊 Backup Channel", "url": "https://t.me/FlixBoxsAdminBot"}
+                    ],
+                    [{"text": "❓ About Us", "url": f"{SITE_URL}/p/about.html"}]
+                ]
+            }
+            
+            requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={
+                "chat_id": chat_id,
+                "text": "👋 Welcome to our Bot! Here is your info:",
+                "reply_markup": keyboard
+            })
+    return jsonify({"status": "ok"})
+
 @app.route('/api/upload', methods=['POST'])
 def upload_api():
     try:
@@ -434,6 +490,74 @@ def details_api():
 def person_api():
     id = request.args.get('id')
     return jsonify(requests.get(f"https://api.themoviedb.org/3/person/{id}?api_key={TMDB_API_KEY}&append_to_response=combined_credits").json())
+
+@app.route('/api/notify', methods=['POST'])
+def notify_api():
+    try:
+        data = request.json
+        title = data.get('title', 'Unknown')
+        story = data.get('story', '')
+        img = data.get('backdrop', '')
+        year = data.get('date', 'N/A')[:4]
+        lang = data.get('lang', 'N/A')
+        post_type = data.get('type', 'movie')
+        
+        # ডিটেইলস ক্যাপশন তৈরি
+        if post_type == 'movie':
+            qualities = ", ".join([l['q'] for l in data.get('movieLinks', [])])
+            caption = (f"🎬 *{title}*\n\n"
+                       f"📅 *Year:* {year}\n"
+                       f"🌐 *Language:* {lang}\n"
+                       f"💎 *Quality:* {qualities}\n\n"
+                       f"📝 *Story:* {story[:200]}...\n\n"
+                       f"📥 *Download Now from our Site!*")
+        else:
+            seasons = data.get('seasons', [])
+            total_seasons = len(seasons)
+            season_info = ""
+            total_eps = 0
+            for i, s in enumerate(seasons):
+                ep_count = len(s.get('episodes', []))
+                total_eps += ep_count
+                season_info += f"🔹 Season {i+1}: {ep_count} Episodes\n"
+            
+            caption = (f"🎬 *{title}* (Web Series)\n\n"
+                       f"📅 *Year:* {year}\n"
+                       f"🌐 *Language:* {lang}\n"
+                       f"📂 *Total Seasons:* {total_seasons}\n"
+                       f"🎞 *Total Episodes:* {total_eps}\n"
+                       f"{season_info}\n"
+                       f"📝 *Story:* {story[:150]}...\n\n"
+                       f"📥 *Download Now from our Site!*")
+        
+        keyboard = {
+            "inline_keyboard": [
+                [{"text": "🌐 Visit Website", "url": SITE_URL}],
+                [{"text": "❓ How to Download", "url": "https://t.me/flixBoxsbd/13"}],
+                [
+                    {"text": "🍿 Main Channel", "url": "https://t.me/flixBoxsbd"},
+                        {"text": "🍿 Movie Channel", "url": "https://t.me/FlixBoxs"}
+                    ],
+                    [
+                        {"text": "🍿 Movie Group", "url": "https://t.me/movieflixboxchat"},
+                        {"text": "🌊 Backup Channel", "url": "https://t.me/FlixBoxsAdminBot"}
+                    ],
+            ]
+        }
+        
+        tg_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
+        payload = {
+            "chat_id": CHANNEL_ID,
+            "photo": img,
+            "caption": caption,
+            "parse_mode": "Markdown",
+            "reply_markup": json.dumps(keyboard)
+        }
+        
+        res = requests.post(tg_url, data=payload)
+        return jsonify({"status": "success", "response": res.json()})
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 500
 
 @app.route('/api/generate', methods=['POST'])
 def generate_api():
@@ -472,7 +596,7 @@ def generate_api():
                 s_btns += '</div></div>'
         s_btns += '</div>'
 
-        tg_box_html = """<div class="tg-main-box"><h4>🚀 JOIN OUR TELEGRAM CHANNELS</h4><div class="tg-btn-grid"><a href="https://t.me/FlixBoxsOfficial" target="_blank">Official Channel</a><a href="http://t.me/FlixBoxs" target="_blank">Backup Channel</a><a href="https://t.me/FlixBoxsNew" target="_blank">Movie Channel</a><a href="https://t.me/+bYeiFHL2OgM3NWZl" target="_blank">Chat Group</a></div></div>"""
+        tg_box_html = """<div class="tg-main-box"><h4>🚀 JOIN OUR TELEGRAM CHANNELS</h4><div class="tg-btn-grid"><a href="https://t.me/FlixBoxs" target="_blank">Main Channel</a><a href="http://t.me/FlixBoxsOfficial" target="_blank">Backup Channel</a><a href="https://t.me/flixBoxsbd" target="_blank">Movie Channel</a><a href="https://t.me/FlixboxsChat" target="_blank">Chat Group</a></div></div>"""
         
         blogger_html = f"""
 <!--BLOGGER POST START-->
